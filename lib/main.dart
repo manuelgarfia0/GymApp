@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gym_app/features/home/screens/home_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gym_app/features/auth/screens/login_screen.dart';
+import 'package:gym_app/core/storage/secure_storage_service.dart';
 
 void main() {
   runApp(const GymApp());
@@ -36,6 +36,9 @@ class AuthCheckScreen extends StatefulWidget {
 }
 
 class _AuthCheckScreenState extends State<AuthCheckScreen> {
+  // Instanciamos nuestro servicio
+  final _storageService = SecureStorageService();
+
   @override
   void initState() {
     super.initState();
@@ -43,10 +46,8 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   }
 
   Future<void> _checkToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('jwt_token');
+    final token = await _storageService.readToken();
 
-    // Damos un pequeño retraso de medio segundo para que quede bonito visualmente
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;

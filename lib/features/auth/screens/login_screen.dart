@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:jwt_decoder/jwt_decoder.dart'; // NUEVA IMPORTACIÓN
 import 'package:gym_app/features/home/screens/home_screen.dart';
+import 'package:gym_app/features/auth/services/auth_service.dart';
+import 'package:gym_app/core/storage/secure_storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,53 +17,54 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _login() async {
+    // 1. Iniciamos la carga
     setState(() { _isLoading = true; });
 
     try {
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:8080/api/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': _usernameController.text,
-          'password': _passwordController.text,
-        }),
+      // 2. Delegamos la lógica de red al AuthService (él maneja la URL y los errores)
+      final authService = AuthService();
+      final token = await authService.login(
+        _usernameController.text,
+        _passwordController.text,
       );
 
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final String token = data['token'];
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('jwt_token', token);
+      // 3. Decodificamos el token para sacar el ID
+      Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+      int userId = decodedToken['id'];
 
-        // --- NUEVO: EXTRAER EL ID DEL USUARIO Y GUARDARLO ---
-        Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
-        int userId = decodedToken['id']; // Leemos el 'id' del Token de Spring Boot
-        await prefs.setInt('user_id', userId); // Lo guardamos en la memoria del móvil
-        // ----------------------------------------------------
+      // 4. Guardamos todo de forma SEGURA (usando el servicio que creamos)
+      final storageService = SecureStorageService();
+      await storageService.saveToken(token);
+      
+      // Nota: SecureStorage guarda Strings. Si necesitas guardar el ID, 
+      // tendrías que añadir un método 'saveUserId(String id)' en tu SecureStorageService.
+      // await storageService.saveUserId(userId.toString()); 
 
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid username or password'), backgroundColor: Colors.red),
-          );
-        }
-      }
-    } catch (e) {
+      // 5. Navegamos al Home
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connection error: $e'), backgroundColor: Colors.red),
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       }
+      
+    } catch (e) {
+      // 6. Si el AuthService lanza una excepción (ej. "Invalid password"), la mostramos
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')), 
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      // 7. Usamos finally para asegurarnos de que el botón siempre vuelva a su estado normal, 
+      // falle o no la petición.
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
     }
-
-    setState(() { _isLoading = false; });
   }
 
   @override
