@@ -7,7 +7,6 @@ class WorkoutDetailScreen extends StatelessWidget {
 
   const WorkoutDetailScreen({super.key, required this.workout});
 
-  // Función para agrupar las series por ejercicio
   List<Map<String, dynamic>> _getGroupedExercises() {
     Map<int, Map<String, dynamic>> grouped = {};
 
@@ -15,16 +14,22 @@ class WorkoutDetailScreen extends StatelessWidget {
       if (!grouped.containsKey(set.exerciseId)) {
         grouped[set.exerciseId] = {
           'name': set.exerciseName ?? 'Unknown Exercise',
+          'notes': set.notes ?? '', // ¡NUEVO! Recuperamos la nota del primer set
           'sets': <WorkoutSetDTO>[],
         };
       }
+      
+      // A veces la nota viene en sets posteriores, así que la actualizamos si encontramos una
+      if (set.notes != null && set.notes!.isNotEmpty) {
+        grouped[set.exerciseId]!['notes'] = set.notes;
+      }
+      
       grouped[set.exerciseId]!['sets'].add(set);
     }
 
     return grouped.values.toList();
   }
 
-  // ¡MODIFICADO! Ahora devuelve formato HH:MM:SS
   String _calculateDuration() {
     if (workout.startTime.isEmpty || workout.endTime == null || workout.endTime!.isEmpty) {
       return "--:--:--";
@@ -52,13 +57,12 @@ class WorkoutDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Formatear la fecha para el título de la página
     String formattedDate = "Unknown Date";
     
     if (workout.startTime.isNotEmpty) {
       try {
         DateTime parsedDate = DateTime.parse(workout.startTime);
-        formattedDate = DateFormat('EEEE, MMM d, yyyy').format(parsedDate); // Ej: Monday, Oct 24, 2023
+        formattedDate = DateFormat('EEEE, MMM d, yyyy').format(parsedDate);
       } catch (e) {
         formattedDate = workout.startTime;
       }
@@ -76,7 +80,6 @@ class WorkoutDetailScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // HEADER (Resumen del entrenamiento)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -97,15 +100,13 @@ class WorkoutDetailScreen extends StatelessWidget {
                   style: const TextStyle(fontSize: 16, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
-                
-                // Fila con iconos de Reloj y Series totales
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.access_time, color: Colors.blueAccent, size: 20),
                     const SizedBox(width: 6),
                     Text(
-                      durationStr, // Muestra 01:15:30
+                      durationStr,
                       style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 24),
@@ -123,7 +124,6 @@ class WorkoutDetailScreen extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // LISTA DE EJERCICIOS REALIZADOS
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -131,6 +131,7 @@ class WorkoutDetailScreen extends StatelessWidget {
               itemBuilder: (context, index) {
                 final exercise = groupedExercises[index];
                 final String exName = exercise['name'];
+                final String notes = exercise['notes']; // ¡NUEVO! Obtenemos las notas
                 final List<WorkoutSetDTO> exSets = exercise['sets'];
 
                 return Card(
@@ -146,6 +147,17 @@ class WorkoutDetailScreen extends StatelessWidget {
                           exName,
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueAccent),
                         ),
+                        
+                        // ¡NUEVO! Mostramos la nota si la hay
+                        if (notes.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(
+                              '📝 $notes',
+                              style: const TextStyle(color: Colors.amber, fontStyle: FontStyle.italic, fontSize: 14),
+                            ),
+                          ),
+                          
                         const SizedBox(height: 12),
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -157,7 +169,6 @@ class WorkoutDetailScreen extends StatelessWidget {
                         ),
                         const Divider(color: Colors.grey),
                         
-                        // Generamos las filas de las series
                         ...exSets.asMap().entries.map((entry) {
                           int setIndex = entry.key + 1;
                           WorkoutSetDTO s = entry.value;

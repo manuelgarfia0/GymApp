@@ -5,6 +5,7 @@ class WorkoutSetDTO {
   final int setNumber;
   final double weight;
   final int reps;
+  final String? notes; // ¡NUEVO! Notas para este set/ejercicio
 
   WorkoutSetDTO({
     required this.exerciseId,
@@ -13,6 +14,7 @@ class WorkoutSetDTO {
     required this.setNumber,
     required this.weight,
     required this.reps,
+    this.notes,
   });
 
   factory WorkoutSetDTO.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class WorkoutSetDTO {
       setNumber: json['setNumber'] ?? 1,
       weight: (json['weight'] ?? 0).toDouble(),
       reps: json['reps'] ?? 0,
+      notes: json['notes'], // Leemos del backend (cuando lo añadas en Java)
     );
   }
 
@@ -33,15 +36,17 @@ class WorkoutSetDTO {
       'setNumber': setNumber,
       'weight': weight,
       'reps': reps,
+      'notes': notes, // Enviamos al backend
     };
   }
 }
 
+// ... EL RESTO DE ESTE ARCHIVO (WorkoutDTO) QUEDA IGUAL ...
 class WorkoutDTO {
   final int? id;
   final String name;
   final String startTime;
-  final String? endTime; // ¡NUEVO! Guardamos la hora de fin
+  final String? endTime;
   final int userId;
   final int? routineId;
   final List<WorkoutSetDTO> sets;
@@ -50,7 +55,7 @@ class WorkoutDTO {
     this.id,
     required this.name,
     required this.startTime,
-    this.endTime, // Añadido al constructor
+    this.endTime,
     required this.userId,
     this.routineId,
     required this.sets,
@@ -66,7 +71,7 @@ class WorkoutDTO {
       id: json['id'],
       name: json['name'] ?? 'Unnamed Workout',
       startTime: json['startTime'] ?? '',
-      endTime: json['endTime'], // Lo leemos del JSON
+      endTime: json['endTime'],
       userId: json['userId'] ?? 0,
       routineId: json['routineId'],
       sets: parsedSets,
@@ -77,7 +82,7 @@ class WorkoutDTO {
     return {
       'name': name,
       'startTime': startTime,
-      'endTime': endTime, // Lo enviamos al JSON
+      'endTime': endTime,
       'userId': userId,
       'routineId': routineId,
       'sets': sets.map((s) => s.toJson()).toList(),
