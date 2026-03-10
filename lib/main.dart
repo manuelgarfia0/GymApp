@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:gym_app/screens/home_screen.dart';
+import 'package:gym_app/features/home/screens/home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/screens/login_screen.dart';
+import 'package:gym_app/features/auth/screens/login_screen.dart';
 
 void main() {
   runApp(const GymApp());

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/screens/login_screen.dart';
-import 'package:gym_app/screens/exercises_screen.dart';
-import 'package:gym_app/screens/active_workout_screen.dart';
-import 'package:gym_app/screens/workout_detail_screen.dart';
-import 'package:gym_app/screens/create_routine_screen.dart';
-import 'package:gym_app/screens/profile_screen.dart';
-import 'package:gym_app/services/workout_service.dart';
-import 'package:gym_app/services/routine_service.dart';
-import 'package:gym_app/models/workout.dart';
-import 'package:gym_app/models/routine.dart';
+import 'package:gym_app/features/auth/screens/login_screen.dart';
+import 'package:gym_app/features/workouts/screens/exercises_screen.dart';
+import 'package:gym_app/features/workouts/screens/active_workout_screen.dart';
+import 'package:gym_app/features/workouts/screens/workout_detail_screen.dart';
+import 'package:gym_app/features/workouts/screens/create_routine_screen.dart';
+import 'package:gym_app/features/profile/screens/profile_screen.dart';
+import 'package:gym_app/features/workouts/services/workout_service.dart';
+import 'package:gym_app/features/workouts/services/routine_service.dart';
+import 'package:gym_app/features/workouts/models/workout.dart';
+import 'package:gym_app/features/workouts/models/routine.dart';
 import 'package:intl/intl.dart';
 
 class HomeScreen extends StatefulWidget {

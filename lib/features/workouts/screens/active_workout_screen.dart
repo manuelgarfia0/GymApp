@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/models/exercise.dart';
-import 'package:gym_app/models/workout.dart';
-import 'package:gym_app/models/routine.dart';
-import 'package:gym_app/services/workout_service.dart';
-import 'package:gym_app/screens/exercise_selection_screen.dart';
+import 'package:gym_app/features/workouts/models/exercise.dart';
+import 'package:gym_app/features/workouts/models/workout.dart';
+import 'package:gym_app/features/workouts/models/routine.dart';
+import 'package:gym_app/features/workouts/services/workout_service.dart';
+import 'package:gym_app/features/workouts/screens/exercise_selection_screen.dart';
 
 class ActiveSet {
   final String id;
@@ -20,7 +20,7 @@ class ActiveExercise {
   final Exercise exercise;
   final List<ActiveSet> sets;
   int restSeconds;
-  String notes; // ¡NUEVO! Nota a nivel de ejercicio
+  String notes;
 
   ActiveExercise({
     required this.exercise, 

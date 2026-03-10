@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/models/user.dart';
-import 'package:gym_app/models/workout.dart';
-import 'package:gym_app/services/user_service.dart';
-import 'package:gym_app/services/workout_service.dart';
+import 'package:gym_app/features/auth/models/user.dart';
+import 'package:gym_app/features/workouts/models/workout.dart';
+import 'package:gym_app/features/auth/services/user_service.dart';
+import 'package:gym_app/features/workouts/services/workout_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gym_app/models/exercise.dart';
-import 'package:gym_app/services/exercise_service.dart';
+import 'package:gym_app/features/workouts/models/exercise.dart';
+import 'package:gym_app/features/workouts/services/exercise_service.dart';
 
 class ExercisesScreen extends StatefulWidget {
   const ExercisesScreen({super.key});

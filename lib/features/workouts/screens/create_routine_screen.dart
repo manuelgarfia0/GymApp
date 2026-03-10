@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/models/exercise.dart';
-import 'package:gym_app/models/routine.dart';
-import 'package:gym_app/services/routine_service.dart';
-import 'package:gym_app/screens/exercise_selection_screen.dart';
+import 'package:gym_app/features/workouts/models/exercise.dart';
+import 'package:gym_app/features/workouts/models/routine.dart';
+import 'package:gym_app/features/workouts/services/routine_service.dart';
+import 'package:gym_app/features/workouts/screens/exercise_selection_screen.dart';
 
 class RoutineDraftExercise {
   final String id; // ¡NUEVO! Para reordenar

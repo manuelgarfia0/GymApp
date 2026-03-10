@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gym_app/models/workout.dart';
+import 'package:gym_app/features/workouts/models/workout.dart';
 import 'package:intl/intl.dart';
 
 class WorkoutDetailScreen extends StatelessWidget {
