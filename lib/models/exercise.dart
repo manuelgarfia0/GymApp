@@ -2,25 +2,32 @@ class Exercise {
   final int id;
   final String name;
   final String description;
-  final String primaryMuscle;
-  final String equipment;
+  final String primaryMuscleName;
+  final String equipmentName;
+  final List<String> secondaryMuscleNames;
 
   Exercise({
     required this.id,
     required this.name,
-    required this.description,
-    required this.primaryMuscle,
-    required this.equipment,
+    this.description = 'No description provided',
+    this.primaryMuscleName = 'Unspecified',
+    this.equipmentName = 'Bodyweight',
+    this.secondaryMuscleNames = const [],
   });
 
-  // Convierte el JSON de la API a un objeto de Dart
   factory Exercise.fromJson(Map<String, dynamic> json) {
+    List<String> parsedSecondary = [];
+    if (json['secondaryMuscleNames'] != null) {
+      parsedSecondary = List<String>.from(json['secondaryMuscleNames']);
+    }
+
     return Exercise(
       id: json['id'],
       name: json['name'],
-      description: json['description'] ?? 'Sin descripción',
-      primaryMuscle: json['primaryMuscle'] ?? 'General',
-      equipment: json['equipment'] ?? 'Bodyweight',
+      description: json['description'] ?? 'No description provided',
+      primaryMuscleName: json['primaryMuscleName'] ?? 'Unspecified',
+      equipmentName: json['equipmentName'] ?? 'Bodyweight',
+      secondaryMuscleNames: parsedSecondary,
     );
   }
 }

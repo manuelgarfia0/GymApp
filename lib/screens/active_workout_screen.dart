@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:gym_app/models/exercise.dart'; // Importamos el modelo de Ejercicio
+import 'package:shared_preferences/shared_preferences.dart'; // NUEVA IMPORTACIÓN
+import 'package:gym_app/models/exercise.dart';
 import 'package:gym_app/models/workout.dart';
 import 'package:gym_app/services/workout_service.dart';
 
@@ -9,7 +10,6 @@ class ActiveSet {
   ActiveSet({this.weight, this.reps});
 }
 
-// Nueva clase para agrupar un Ejercicio con sus Series
 class ActiveExercise {
   final Exercise exercise;
   final List<ActiveSet> sets;
@@ -17,7 +17,6 @@ class ActiveExercise {
 }
 
 class ActiveWorkoutScreen extends StatefulWidget {
-  // Recibimos los ejercicios seleccionados desde la pantalla anterior
   final List<Exercise> selectedExercises;
 
   const ActiveWorkoutScreen({super.key, required this.selectedExercises});
@@ -27,23 +26,18 @@ class ActiveWorkoutScreen extends StatefulWidget {
 }
 
 class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
-  // Ahora tenemos una lista de "Ejercicios Activos", cada uno con sus series
   final List<ActiveExercise> _activeExercises = [];
-  
   final WorkoutService _workoutService = WorkoutService();
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    // Al iniciar la pantalla, creamos un bloque por cada ejercicio seleccionado
-    // y le ponemos 1 serie vacía por defecto a cada uno.
     for (var ex in widget.selectedExercises) {
       _activeExercises.add(ActiveExercise(exercise: ex, sets: [ActiveSet()]));
     }
   }
 
-  // Función para añadir una serie a un ejercicio específico
   void _addSetToExercise(int exerciseIndex) {
     setState(() {
       _activeExercises[exerciseIndex].sets.add(ActiveSet());
@@ -56,16 +50,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     final List<WorkoutSetDTO> setsToSend = [];
     int exerciseOrder = 1;
 
-    // Recorremos cada ejercicio
     for (var activeEx in _activeExercises) {
       int setNumber = 1;
-      
-      // Recorremos las series de ese ejercicio
       for (var s in activeEx.sets) {
-        // Solo enviamos las series que tengan peso y repeticiones
         if (s.weight != null && s.reps != null) {
           setsToSend.add(WorkoutSetDTO(
-            exerciseId: activeEx.exercise.id, // ¡ID REAL DEL EJERCICIO!
+            exerciseId: activeEx.exercise.id,
             exerciseOrder: exerciseOrder,
             setNumber: setNumber,
             weight: s.weight!,
@@ -74,8 +64,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           setNumber++;
         }
       }
-      
-      // Si el ejercicio tuvo alguna serie válida, aumentamos el orden para el siguiente
       if (setNumber > 1) {
         exerciseOrder++;
       }
@@ -89,10 +77,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       return;
     }
 
+    // --- NUEVO: RECUPERAR EL ID DEL USUARIO ---
+    final prefs = await SharedPreferences.getInstance();
+    final int realUserId = prefs.getInt('user_id') ?? 1; // Leemos el ID que guardamos en el Login
+
     final request = WorkoutDTO(
-      name: 'Entrenamiento de hoy', // Más adelante dejaremos que el usuario lo escriba
+      name: 'Entrenamiento de hoy',
       startTime: DateTime.now().toIso8601String(),
-      userId: 1, // Sigue fijo por ahora
+      userId: realUserId, // ¡AQUÍ USAMOS EL ID REAL!
       sets: setsToSend,
     );
 
@@ -105,7 +97,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('¡Entrenamiento guardado en la Base de Datos!'), backgroundColor: Colors.green),
         );
-        // Volvemos a la Home (pop 2 veces: salimos del entrenamiento y salimos de la selección de ejercicios)
         Navigator.popUntil(context, (route) => route.isFirst);
       }
     } else {
@@ -132,7 +123,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               )
         ],
       ),
-      // Dibujamos una lista con todos los ejercicios seleccionados
       body: ListView.builder(
         itemCount: _activeExercises.length,
         itemBuilder: (context, exerciseIndex) {
@@ -146,14 +136,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nombre del Ejercicio
                   Text(
                     activeEx.exercise.name,
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blueAccent),
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Cabecera (Set | KG | Reps)
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
@@ -163,8 +150,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                     ],
                   ),
                   const Divider(),
-                  
-                  // Series de este ejercicio
                   ...List.generate(activeEx.sets.length, (setIndex) {
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -198,10 +183,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                       ),
                     );
                   }),
-                  
                   const SizedBox(height: 8),
-                  
-                  // Botón de Añadir Serie para este ejercicio concreto
                   TextButton.icon(
                     onPressed: () => _addSetToExercise(exerciseIndex),
                     icon: const Icon(Icons.add, color: Colors.blueAccent),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gym_app/models/exercise.dart';
 import 'package:gym_app/services/exercise_service.dart';
-import 'package:gym_app/screens/active_workout_screen.dart';
 
 class ExerciseSelectionScreen extends StatefulWidget {
   const ExerciseSelectionScreen({super.key});
@@ -13,50 +12,26 @@ class ExerciseSelectionScreen extends StatefulWidget {
 class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
   final ExerciseService _exerciseService = ExerciseService();
   late Future<List<Exercise>> _futureExercises;
-  
-  // Aquí guardamos los ejercicios que el usuario va marcando
-  final List<Exercise> _selectedExercises = [];
+
+  List<Exercise> _allExercises = [];
 
   @override
   void initState() {
     super.initState();
-    _futureExercises = _exerciseService.getExercises();
-  }
-
-  // Función para marcar/desmarcar un ejercicio
-  void _toggleSelection(Exercise exercise) {
-    setState(() {
-      if (_selectedExercises.contains(exercise)) {
-        _selectedExercises.remove(exercise); // Si ya estaba, lo quitamos
-      } else {
-        _selectedExercises.add(exercise); // Si no estaba, lo añadimos
-      }
+    _futureExercises = _exerciseService.getExercises().then((exercises) {
+      _allExercises = exercises;
+      return exercises;
     });
-  }
-
-    void _confirmSelection() {
-    if (_selectedExercises.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, selecciona al menos un ejercicio')),
-      );
-      return;
-    }
-
-    // Navegamos a la pantalla de entrenamiento pasándole los ejercicios elegidos
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ActiveWorkoutScreen(selectedExercises: _selectedExercises),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Añadir Ejercicios'),
-        backgroundColor: Colors.blueAccent,
+        title: const Text('Add Exercise', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E1E1E),
+        elevation: 0,
       ),
       body: FutureBuilder<List<Exercise>>(
         future: _futureExercises,
@@ -64,49 +39,51 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+            return Center(
+              child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)),
+            );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No hay ejercicios disponibles.'));
+            return const Center(
+              child: Text('No exercises found', style: TextStyle(color: Colors.grey)),
+            );
           }
 
-          final exercises = snapshot.data!;
-          
-          return ListView.builder(
-            itemCount: exercises.length,
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: _allExercises.length,
+            separatorBuilder: (context, index) => Divider(color: Colors.grey[850], height: 1),
             itemBuilder: (context, index) {
-              final exercise = exercises[index];
-              final isSelected = _selectedExercises.contains(exercise);
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: isSelected ? Colors.blueAccent.withOpacity(0.2) : const Color(0xFF1E1E1E),
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(color: isSelected ? Colors.blueAccent : Colors.transparent, width: 2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isSelected ? Colors.blueAccent : Colors.grey[800],
-                    child: Icon(isSelected ? Icons.check : Icons.fitness_center, color: Colors.white),
+              final exercise = _allExercises[index];
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blueAccent.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  title: Text(exercise.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${exercise.primaryMuscle} • ${exercise.equipment}'),
-                  onTap: () => _toggleSelection(exercise),
+                  child: const Icon(Icons.fitness_center, color: Colors.blueAccent),
                 ),
+                title: Text(
+                  exercise.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    '${exercise.primaryMuscleName} • ${exercise.equipmentName}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  ),
+                ),
+                trailing: const Icon(Icons.add_circle_outline, color: Colors.blueAccent),
+                onTap: () {
+                  Navigator.pop(context, exercise);
+                },
               );
             },
           );
         },
       ),
-      // Botón flotante abajo a la derecha que solo aparece si has seleccionado algo
-      floatingActionButton: _selectedExercises.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: _confirmSelection,
-              backgroundColor: Colors.blueAccent,
-              icon: const Icon(Icons.check, color: Colors.white),
-              label: Text('Añadir (${_selectedExercises.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            )
-          : null,
     );
   }
 }

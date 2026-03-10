@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:gym_app/screens/home_screen.dart';
-import 'package:gym_app/services/auth_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decoder/jwt_decoder.dart'; // NUEVA IMPORTACIÓN
+import 'package:gym_app/screens/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -13,90 +15,113 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
-  // Instanciamos nuestro servicio
-  final AuthService _authService = AuthService();
-  
-  // Variable para mostrar un "cargando" mientras conectamos
   bool _isLoading = false;
 
-  // Añadimos 'async' porque conectarse a internet toma tiempo
   Future<void> _login() async {
-    final username = _usernameController.text;
-    final password = _passwordController.text;
+    setState(() { _isLoading = true; });
 
-    setState(() {
-      _isLoading = true;
-    });
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:8080/api/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': _usernameController.text,
+          'password': _passwordController.text,
+        }),
+      );
 
-    final String? token = await _authService.login(username, password);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final String token = data['token'];
+        
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('jwt_token', token);
 
-    setState(() {
-      _isLoading = false;
-    });
+        // --- NUEVO: EXTRAER EL ID DEL USUARIO Y GUARDARLO ---
+        Map<String, dynamic> decodedToken = JwtDecoder.decode(token);
+        int userId = decodedToken['id']; // Leemos el 'id' del Token de Spring Boot
+        await prefs.setInt('user_id', userId); // Lo guardamos en la memoria del móvil
+        // ----------------------------------------------------
 
-    if (token != null) {
-      // 1. GUARDAMOS EL TOKEN EN LA MEMORIA DEL MÓVIL
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('jwt_token', token);
-      
-      // 2. NAVEGAMOS A LA PANTALLA PRINCIPAL
-      // Navigator.pushReplacement cambia la pantalla y evita que el usuario 
-      // vuelva al Login si le da al botón de "Atrás" de Android.
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Usuario o contraseña incorrectos'), backgroundColor: Colors.red),
+          );
+        }
       }
-    } else {
-      // Mostrar error
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Usuario o contraseña incorrectos'), 
-            backgroundColor: Colors.red
-          ),
+          SnackBar(content: Text('Error de conexión: $e'), backgroundColor: Colors.red),
         );
       }
     }
+
+    setState(() { _isLoading = false; });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
+      backgroundColor: const Color(0xFF121212),
+      body: Center(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Icon(Icons.fitness_center, size: 100, color: Colors.blueAccent),
+              const SizedBox(height: 32),
               const Text(
-                'GYM APP',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 2),
+                'Gym Tracker',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 32),
               TextField(
                 controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFF1E1E1E),
+                  labelText: 'Usuario',
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: const Color(0xFF1E1E1E),
+                  labelText: 'Contraseña',
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
               const SizedBox(height: 32),
-              
-              // Si está cargando, mostramos la rueda; si no, el botón
-              _isLoading 
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                      onPressed: _login,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-                      child: const Text('LOGIN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              _isLoading
+                  ? const CircularProgressIndicator(color: Colors.blueAccent)
+                  : SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: _login,
+                        child: const Text('ENTRAR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
                     ),
             ],
           ),
