@@ -12,7 +12,7 @@ class ExerciseService {
     final token = prefs.getString('jwt_token');
 
     if (token == null) {
-      throw Exception('No hay token disponible. Por favor, inicia sesión.');
+      throw Exception('No token available. Please log in.');
     }
 
     try {
@@ -35,10 +35,10 @@ class ExerciseService {
         
         return exercises;
       } else {
-        throw Exception('Error al cargar ejercicios: ${response.statusCode}');
+        throw Exception('Failed to load exercises: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Error de conexión: $e');
+      throw Exception('Connection error: $e');
     }
   }
 }

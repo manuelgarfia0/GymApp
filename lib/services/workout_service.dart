@@ -36,7 +36,7 @@ class WorkoutService {
       return false;
     }
   }
-    // --- NUEVA FUNCIÓN PARA OBTENER EL HISTORIAL ---
+  
   Future<List<WorkoutDTO>> getUserWorkouts(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('jwt_token');
@@ -53,25 +53,15 @@ class WorkoutService {
       );
 
       if (response.statusCode == 200) {
-        // Convertimos el JSON de Spring Boot en una lista de WorkoutDTO
+        // Al usar fromJson() ahora pilla automáticamente TODAS las series que vengan del backend
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-        
-        return data.map((json) {
-          // Extraemos los datos básicos del entrenamiento
-          return WorkoutDTO(
-            name: json['name'] ?? 'Entrenamiento sin nombre',
-            startTime: json['startTime'] ?? '',
-            userId: json['userId'] ?? userId,
-            // Por ahora, para el resumen, no necesitamos extraer las series complejas
-            sets: [], 
-          );
-        }).toList();
+        return data.map((json) => WorkoutDTO.fromJson(json)).toList();
       } else {
-        print('Error al obtener historial: ${response.statusCode}');
+        print('Error fetching history: ${response.statusCode}');
         return [];
       }
     } catch (e) {
-      print('Error de conexión en historial: $e');
+      print('History connection error: $e');
       return [];
     }
   }

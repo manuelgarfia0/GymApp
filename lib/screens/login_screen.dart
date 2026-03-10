@@ -52,14 +52,14 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Usuario o contraseña incorrectos'), backgroundColor: Colors.red),
+            const SnackBar(content: Text('Invalid username or password'), backgroundColor: Colors.red),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error de conexión: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Connection error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -90,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
-                  labelText: 'Usuario',
+                  labelText: 'Username',
                   labelStyle: const TextStyle(color: Colors.grey),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -103,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
-                  labelText: 'Contraseña',
+                  labelText: 'Password',
                   labelStyle: const TextStyle(color: Colors.grey),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: _login,
-                        child: const Text('ENTRAR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: const Text('LOG IN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
             ],

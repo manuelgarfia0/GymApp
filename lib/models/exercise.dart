@@ -16,6 +16,7 @@ class Exercise {
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
+    // Si viene la lista de secundarios del JSON, la casteamos a List<String>. Si no, lista vacía.
     List<String> parsedSecondary = [];
     if (json['secondaryMuscleNames'] != null) {
       parsedSecondary = List<String>.from(json['secondaryMuscleNames']);
