@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gym_app/screens/active_workout_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gym_app/screens/login_screen.dart';
 import 'package:gym_app/screens/exercises_screen.dart';
@@ -16,22 +17,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Las 3 pantallas que se mostrarán en el centro
   final List<Widget> _screens = [
-    // Pestaña 0: Workouts (Temporalmente un texto)
-    const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.play_circle_fill, size: 80, color: Colors.blueAccent),
-          SizedBox(height: 16),
-          Text('Start Workout', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        ],
-      ),
+    // Pestaña 0: Workouts
+    Builder(
+      builder: (context) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.fitness_center, size: 80, color: Colors.grey),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text('Iniciar Entrenamiento Vacío', style: TextStyle(fontSize: 18)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: () {
+                  // Navegamos a la nueva pantalla de entrenamiento
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ActiveWorkoutScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      }
     ),
     
-    // Pestaña 1: La lista de ejercicios real conectada a tu API
+    // Pestaña 1: La lista de ejercicios
     const ExercisesScreen(),
     
-    // Pestaña 2: Profile (Temporalmente un botón de Logout)
+    // Pestaña 2: Profile
     const Center(child: Text('Profile Settings', style: TextStyle(fontSize: 24))),
   ];
 
