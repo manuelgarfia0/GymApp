@@ -3,6 +3,7 @@ import 'package:gym_app/screens/active_workout_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gym_app/screens/login_screen.dart';
 import 'package:gym_app/screens/exercises_screen.dart';
+import 'package:gym_app/screens/exercise_selection_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,17 +29,17 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add),
-                label: const Text('Iniciar Entrenamiento Vacío', style: TextStyle(fontSize: 18)),
+                label: const Text('Iniciar Entrenamiento', style: TextStyle(fontSize: 18)),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                   backgroundColor: Colors.blueAccent,
                   foregroundColor: Colors.white,
                 ),
                 onPressed: () {
-                  // Navegamos a la nueva pantalla de entrenamiento
+                  // AHORA VAMOS A LA PANTALLA DE SELECCIÓN DE EJERCICIOS
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const ActiveWorkoutScreen()),
+                    MaterialPageRoute(builder: (context) => const ExerciseSelectionScreen()),
                   );
                 },
               ),
