@@ -6,8 +6,8 @@ import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../datasources/auth_remote_datasource.dart';
 
-/// Implementation of AuthRepository that bridges datasource and domain
-/// Handles JWT token storage and transforms DTOs to entities
+/// Implementación de AuthRepository que conecta datasource y dominio
+/// Maneja el almacenamiento de tokens JWT y transforma DTOs a entidades
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource remoteDatasource;
   final SecureStorageService storageService;
@@ -20,7 +20,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<String> login(String username, String password) async {
     try {
-      // Validate input
+      // Validar entrada
       if (username.trim().isEmpty) {
         throw const ValidationFailure('Username cannot be empty');
       }
@@ -28,13 +28,16 @@ class AuthRepositoryImpl implements AuthRepository {
         throw const ValidationFailure('Password cannot be empty');
       }
 
-      // Get token from remote datasource
+      // Obtener token del datasource remoto
       final token = await remoteDatasource.login(username, password);
 
-      // Store token securely
+      // Almacenar token de forma segura
       await storageService.saveToken(token);
 
       return token;
+    } on ServerException catch (e) {
+      // Manejar excepciones específicas del servidor con mejor categorización
+      throw _mapServerExceptionToFailure(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
     } on http.ClientException {
@@ -44,12 +47,13 @@ class AuthRepositoryImpl implements AuthRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
+      rethrow; // Re-lanzar errores de validación tal como están
     } catch (e) {
-      // Check if it's an HTTP error with status code
+      // Manejo de errores legacy para compatibilidad con código existente
       final errorMessage = e.toString().toLowerCase();
       if (errorMessage.contains('401') ||
-          errorMessage.contains('unauthorized')) {
+          errorMessage.contains('unauthorized') ||
+          errorMessage.contains('invalid credentials')) {
         throw const AuthenticationFailure('Invalid username or password');
       } else if (errorMessage.contains('403') ||
           errorMessage.contains('forbidden')) {
@@ -65,8 +69,61 @@ class AuthRepositoryImpl implements AuthRepository {
         throw const NetworkFailure('Server error, please try again later');
       }
 
-      // Default network failure for unknown errors
+      // Fallo de red por defecto para errores desconocidos
       throw NetworkFailure('Login failed: ${e.toString()}');
+    }
+  }
+
+  /// Mapea ServerException específicas a Failures apropiados
+  Failure _mapServerExceptionToFailure(ServerException e) {
+    print('🔄 AuthRepository: Mapeando ServerException a Failure');
+    print('   Tipo: ${e.type}');
+    print('   Mensaje: ${e.message}');
+    print('   Código de estado: ${e.statusCode}');
+
+    switch (e.type) {
+      case ServerErrorType.authentication:
+        return AuthenticationFailure(e.message);
+
+      case ServerErrorType.forbidden:
+        return AuthenticationFailure(e.message);
+
+      case ServerErrorType.notFound:
+        return NetworkFailure(e.message);
+
+      case ServerErrorType.conflict:
+        return AuthenticationFailure(e.message);
+
+      case ServerErrorType.serverError:
+        return NetworkFailure(e.message);
+
+      case ServerErrorType.serviceUnavailable:
+        return NetworkFailure(e.message);
+
+      case ServerErrorType.databaseError:
+        return NetworkFailure(
+          'Database connection error. Please try again in a few minutes.',
+        );
+
+      case ServerErrorType.jwtError:
+        return NetworkFailure(
+          'Authentication system error. Please try again or contact support.',
+        );
+
+      case ServerErrorType.networkError:
+        return NetworkFailure(e.message);
+
+      case ServerErrorType.timeoutError:
+        return NetworkFailure(
+          'Request timeout. Please check your connection and try again.',
+        );
+
+      case ServerErrorType.validationError:
+        return ValidationFailure(e.message);
+
+      case ServerErrorType.unknownError:
+      default:
+        return NetworkFailure(e.message);
     }
   }
 
@@ -77,7 +134,7 @@ class AuthRepositoryImpl implements AuthRepository {
     String password,
   ) async {
     try {
-      // Validate input
+      // Validar entrada
       if (username.trim().isEmpty) {
         throw const ValidationFailure('Username cannot be empty');
       }
@@ -90,18 +147,21 @@ class AuthRepositoryImpl implements AuthRepository {
       if (password.length < 6) {
         throw const ValidationFailure('Password must be at least 6 characters');
       }
-      // Basic email validation
+      // Validación básica de email
       if (!email.contains('@') || !email.contains('.')) {
         throw const ValidationFailure('Please enter a valid email address');
       }
 
-      // Get token from remote datasource
+      // Obtener token del datasource remoto
       final token = await remoteDatasource.register(username, email, password);
 
-      // Store token securely
+      // Almacenar token de forma segura
       await storageService.saveToken(token);
 
       return token;
+    } on ServerException catch (e) {
+      // Manejar excepciones específicas del servidor
+      throw _mapServerExceptionToFailure(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
     } on http.ClientException {
@@ -111,9 +171,9 @@ class AuthRepositoryImpl implements AuthRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
+      rethrow; // Re-lanzar errores de validación tal como están
     } catch (e) {
-      // Check if it's an HTTP error with status code
+      // Manejo de errores legacy para compatibilidad
       final errorMessage = e.toString().toLowerCase();
       if (errorMessage.contains('409') || errorMessage.contains('conflict')) {
         throw const AuthenticationFailure('Username or email already exists');
@@ -125,7 +185,7 @@ class AuthRepositoryImpl implements AuthRepository {
         throw const NetworkFailure('Server error, please try again later');
       }
 
-      // Default network failure for unknown errors
+      // Fallo de red por defecto para errores desconocidos
       throw NetworkFailure('Registration failed: ${e.toString()}');
     }
   }
@@ -133,28 +193,37 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     try {
-      // Clear stored token
+      // Limpiar token almacenado
       await storageService.deleteToken();
     } catch (e) {
-      // Even if storage fails, we should complete logout
-      // Log error but don't throw to prevent logout issues
+      // Incluso si el almacenamiento falla, debemos completar el logout
+      // Registrar error pero no lanzar para evitar problemas de logout
+      print('⚠️ AuthRepository: Error durante logout: $e');
     }
   }
 
   @override
   Future<User?> getCurrentUser() async {
     try {
-      // Check if token exists
+      // Verificar si existe token
       final token = await storageService.readToken();
       if (token == null || token.isEmpty) {
         return null;
       }
 
-      // Get user data from remote datasource
+      // Obtener datos de usuario del datasource remoto
       final userDto = await remoteDatasource.getCurrentUser();
 
-      // Transform DTO to entity before returning to domain layer
+      // Transformar DTO a entidad antes de devolver a la capa de dominio
       return userDto.toEntity();
+    } on ServerException catch (e) {
+      // Manejar excepciones específicas del servidor
+      if (e.type == ServerErrorType.authentication) {
+        // Token inválido, limpiarlo y devolver null
+        await storageService.deleteToken();
+        throw AuthenticationFailure(e.message);
+      }
+      throw _mapServerExceptionToFailure(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
     } on http.ClientException {
@@ -164,11 +233,11 @@ class AuthRepositoryImpl implements AuthRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } catch (e) {
-      // Check if it's an authentication error
+      // Verificar si es un error de autenticación
       final errorMessage = e.toString().toLowerCase();
       if (errorMessage.contains('401') ||
           errorMessage.contains('unauthorized')) {
-        // Token is invalid, clear it and return null
+        // Token inválido, limpiarlo y devolver null
         await storageService.deleteToken();
         throw const AuthenticationFailure(
           'Session expired, please login again',
@@ -183,7 +252,7 @@ class AuthRepositoryImpl implements AuthRepository {
         throw const NetworkFailure('Server error, please try again later');
       }
 
-      // For other errors, clear token and return null (graceful degradation)
+      // Para otros errores, limpiar token y devolver null (degradación elegante)
       await storageService.deleteToken();
       return null;
     }
@@ -194,16 +263,17 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final token = await storageService.readToken();
 
-      // Basic check - token exists and is not empty
+      // Verificación básica - token existe y no está vacío
       if (token == null || token.isEmpty) {
         return false;
       }
 
-      // Try to get current user to validate token
+      // Intentar obtener usuario actual para validar token
       final user = await getCurrentUser();
       return user != null;
     } catch (e) {
-      // If any error occurs, consider user not logged in
+      // Si ocurre cualquier error, considerar usuario no logueado
+      print('⚠️ AuthRepository: Error verificando login status: $e');
       return false;
     }
   }
@@ -213,7 +283,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       return await storageService.readToken();
     } catch (e) {
-      // If storage fails, return null
+      // Si el almacenamiento falla, devolver null
+      print('⚠️ AuthRepository: Error obteniendo token: $e');
       return null;
     }
   }
