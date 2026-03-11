@@ -87,8 +87,8 @@ class AuthRepositoryImpl implements AuthRepository {
       if (password.trim().isEmpty) {
         throw const ValidationFailure('Password cannot be empty');
       }
-      if (password.length < 8) {
-        throw const ValidationFailure('Password must be at least 8 characters');
+      if (password.length < 6) {
+        throw const ValidationFailure('Password must be at least 6 characters');
       }
       // Basic email validation
       if (!email.contains('@') || !email.contains('.')) {
