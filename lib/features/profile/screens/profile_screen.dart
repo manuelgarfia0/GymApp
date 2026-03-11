@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:gym_app/features/auth/models/user.dart';
-import 'package:gym_app/features/workouts/models/workout.dart';
-import 'package:gym_app/features/auth/services/user_service.dart';
-import 'package:gym_app/features/workouts/services/workout_service.dart';
+import '../../../core/errors/failures.dart';
+import '../../workouts/domain/entities/workout.dart';
+import '../../workouts/domain/use_cases/get_workout_history.dart';
+import '../../workouts/workout_dependencies.dart';
+import '../domain/entities/user_profile.dart';
+import '../domain/use_cases/get_current_user_profile.dart';
+import '../profile_dependencies.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,39 +16,133 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final UserService _userService = UserService();
-  final WorkoutService _workoutService = WorkoutService();
+  // Use cases para operaciones de perfil y workouts
+  late final GetCurrentUserProfile _getCurrentUserProfile;
+  late final GetWorkoutHistory _getWorkoutHistory;
 
-  UserDTO? _user;
-  List<WorkoutDTO> _workouts = [];
+  UserProfile? _user;
+  List<Workout> _workouts = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _initializeUseCases();
     _loadDashboardData();
+  }
+
+  void _initializeUseCases() {
+    // Inicializar los use cases con sus dependencias
+    _getCurrentUserProfile = ProfileDependencies.getCurrentUserProfileUseCase;
+    _getWorkoutHistory = WorkoutDependencies.getWorkoutHistoryUseCase;
   }
 
   // Carga asíncrona de todos los datos necesarios para el dashboard
   Future<void> _loadDashboardData() async {
     final prefs = await SharedPreferences.getInstance();
     final int userId = prefs.getInt('user_id') ?? 0;
-    
+
     if (userId == 0) {
       setState(() => _isLoading = false);
       return;
     }
 
-    // Ejecutamos ambas llamadas a la API de forma concurrente
-    final user = await _userService.getUserProfile(userId);
-    final workouts = await _workoutService.getUserWorkouts(userId);
+    try {
+      // Usar los use cases del dominio para obtener datos
+      final user = await _getCurrentUserProfile();
+      final workouts = await _getWorkoutHistory(userId);
 
-    if (mounted) {
-      setState(() {
-        _user = user;
-        _workouts = workouts;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _workouts = workouts;
+          _isLoading = false;
+        });
+      }
+    } on AuthenticationFailure catch (e) {
+      if (mounted) {
+        setState(() {
+          _user = null;
+          _workouts = [];
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } on NetworkFailure catch (e) {
+      if (mounted) {
+        setState(() {
+          _user = null;
+          _workouts = [];
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                });
+                _loadDashboardData();
+              },
+            ),
+          ),
+        );
+      }
+    } on ValidationFailure catch (e) {
+      if (mounted) {
+        setState(() {
+          _user = null;
+          _workouts = [];
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.amber,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _user = null;
+          _workouts = [];
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load profile data. Please try again.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                setState(() {
+                  _isLoading = true;
+                });
+                _loadDashboardData();
+              },
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -54,13 +151,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Duration totalDuration = Duration.zero;
 
     for (var workout in _workouts) {
-      if (workout.startTime.isNotEmpty && workout.endTime != null && workout.endTime!.isNotEmpty) {
+      if (workout.endTime != null) {
         try {
-          DateTime start = DateTime.parse(workout.startTime);
-          DateTime end = DateTime.parse(workout.endTime!);
-          totalDuration += end.difference(start);
+          Duration workoutDuration = workout.endTime!.difference(
+            workout.startTime,
+          );
+          totalDuration += workoutDuration;
         } catch (e) {
-          // Ignoramos errores de parseo en fechas inválidas
+          // Ignoramos errores de cálculo en fechas inválidas
         }
       }
     }
@@ -72,7 +170,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Componente reutilizable para las tarjetas de estadísticas
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       color: const Color(0xFF1E1E1E),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -85,7 +188,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -102,13 +209,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     // Pantalla de carga mientras se obtienen los datos de la API
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.blueAccent),
+      );
     }
 
     // Manejo de estado en caso de que no se pueda cargar el usuario
     if (_user == null) {
       return const Center(
-        child: Text('Could not load user profile.', style: TextStyle(color: Colors.grey)),
+        child: Text(
+          'Could not load user profile.',
+          style: TextStyle(color: Colors.grey),
+        ),
       );
     }
 
@@ -125,11 +237,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Icon(Icons.person, size: 60, color: Colors.white),
           ),
           const SizedBox(height: 16),
-          
+
           // Información principal del usuario
           Text(
             _user!.username,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -142,7 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: _user!.isPremium ? Colors.amber.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+              color: _user!.isPremium
+                  ? Colors.amber.withValues(alpha: 0.2)
+                  : Colors.grey.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: _user!.isPremium ? Colors.amber : Colors.grey,
@@ -156,19 +274,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 40),
-          
+
           // Sección de Estadísticas (Dashboard)
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Dashboard',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Grid con las métricas usando el componente reutilizable
           GridView.count(
             crossAxisCount: 2,
@@ -177,8 +299,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _buildStatCard('Total Workouts', _workouts.length.toString(), Icons.fitness_center, Colors.blueAccent),
-              _buildStatCard('Time Trained', _calculateTotalTime(), Icons.timer, Colors.greenAccent),
+              _buildStatCard(
+                'Total Workouts',
+                _workouts.length.toString(),
+                Icons.fitness_center,
+                Colors.blueAccent,
+              ),
+              _buildStatCard(
+                'Time Trained',
+                _calculateTotalTime(),
+                Icons.timer,
+                Colors.greenAccent,
+              ),
             ],
           ),
         ],

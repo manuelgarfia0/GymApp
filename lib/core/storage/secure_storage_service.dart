@@ -3,12 +3,8 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
-  // Instancia de la librería con configuraciones recomendadas para Android
-  final _storage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-  );
+  // Instancia de la librería con configuraciones por defecto
+  final _storage = const FlutterSecureStorage();
 
   final String _tokenKey = 'jwt_token';
 

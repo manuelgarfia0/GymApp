@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "name": "documentation_translator",
+  "description": "Traduce automáticamente comentarios y documentación al español tras editar un archivo.",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "lib/**/*.dart\", \"*.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Revisa los cambios realizados en este archivo. Si hay nuevos comentarios de código o secciones de documentación en inglés, tradúcelos al español siguiendo las reglas de '.kiro/steering/language_and_documentation.md'. Asegúrate de mantener los nombres de variables, clases y métodos en inglés."
+  },
+  "workspaceFolderName": "gym_app",
+  "shortName": "documentation-translator"
+}

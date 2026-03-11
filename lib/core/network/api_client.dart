@@ -1,12 +1,12 @@
 // Archivo: lib/core/network/api_client.dart
 
 import 'package:http/http.dart' as http;
-import 'package:gym_app/core/storage/secure_storage_service.dart';
+import '../storage/secure_storage_service.dart';
 
 class ApiClient extends http.BaseClient {
   // Cliente HTTP base que hará el trabajo sucio
   final http.Client _inner = http.Client();
-  
+
   // Instanciamos nuestro servicio seguro
   final SecureStorageService _storageService = SecureStorageService();
 
