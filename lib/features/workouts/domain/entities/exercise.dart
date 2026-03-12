@@ -3,17 +3,18 @@
 class Exercise {
   final int id;
   final String name;
-  final String? description; // Cambiado a nullable para consistencia con DTO
-  final String? primaryMuscle; // Cambiado a nullable para consistencia con DTO
-  final String equipment;
+  final String? description;
+  final String?
+  category; // Mapea equipment o category del backend con estrategia de fallback
+  final String? primaryMuscle;
   final List<String> secondaryMuscles;
 
   const Exercise({
     required this.id,
     required this.name,
-    this.description, // Cambiado a opcional para manejar valores nulos
-    this.primaryMuscle, // Cambiado a opcional para manejar valores nulos
-    required this.equipment,
+    this.description,
+    this.category, // Mapea equipment o category del backend
+    this.primaryMuscle,
     required this.secondaryMuscles,
   });
 
@@ -24,8 +25,8 @@ class Exercise {
         other.id == id &&
         other.name == name &&
         other.description == description &&
+        other.category == category &&
         other.primaryMuscle == primaryMuscle &&
-        other.equipment == equipment &&
         _listEquals(other.secondaryMuscles, secondaryMuscles);
   }
 
@@ -35,8 +36,8 @@ class Exercise {
       id,
       name,
       description,
+      category,
       primaryMuscle,
-      equipment,
       secondaryMuscles.length,
     );
   }
@@ -51,6 +52,6 @@ class Exercise {
 
   @override
   String toString() {
-    return 'Exercise(id: $id, name: $name, primaryMuscle: $primaryMuscle, equipment: $equipment)';
+    return 'Exercise(id: $id, name: $name, category: $category, primaryMuscle: $primaryMuscle)';
   }
 }

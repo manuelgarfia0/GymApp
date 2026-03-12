@@ -11,12 +11,18 @@ class ApiClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    // Log de la petición
+    print('🌐 API Request: ${request.method} ${request.url}');
+
     // 1. Antes de que la petición salga, leemos el token de forma segura
     final token = await _storageService.readToken();
 
     // 2. Si el token existe, inyectamos el header de Authorization (estilo Bearer)
     if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
+      print('🔑 API Request: Token added (${token.substring(0, 20)}...)');
+    } else {
+      print('⚠️ API Request: No token found');
     }
 
     // 3. Ya de paso, le decimos que todas nuestras peticiones son en JSON
@@ -25,8 +31,15 @@ class ApiClient extends http.BaseClient {
       request.headers['Content-Type'] = 'application/json';
     }
 
-    // 4. Dejamos que la petición continúe su viaje hacia Spring Boot
-    return _inner.send(request);
+    try {
+      // 4. Dejamos que la petición continúe su viaje hacia Spring Boot
+      final response = await _inner.send(request);
+      print('🌐 API Response: ${response.statusCode} for ${request.url}');
+      return response;
+    } catch (e) {
+      print('❌ API Error: $e for ${request.url}');
+      rethrow;
+    }
   }
 
   /// Override del método post para asegurar manejo correcto de Content-Type para JSON

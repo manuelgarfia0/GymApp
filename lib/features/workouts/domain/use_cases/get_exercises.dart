@@ -75,22 +75,24 @@ class GetExercises {
         .toList();
   }
 
-  /// Filters exercises by equipment type.
+  /// Filters exercises by category type.
   ///
   /// [exercises] The list of exercises to filter.
-  /// [equipment] The equipment type to filter by.
+  /// [category] The category type to filter by.
   ///
   /// Returns a filtered list of Exercise entities.
-  List<Exercise> filterByEquipment(List<Exercise> exercises, String equipment) {
-    if (equipment.trim().isEmpty) {
+  List<Exercise> filterByCategory(List<Exercise> exercises, String category) {
+    if (category.trim().isEmpty) {
       return exercises;
     }
 
     return exercises
         .where(
-          (exercise) => exercise.equipment.toLowerCase().contains(
-            equipment.toLowerCase(),
-          ),
+          (exercise) =>
+              exercise.category?.toLowerCase().contains(
+                category.toLowerCase(),
+              ) ==
+              true,
         )
         .toList();
   }

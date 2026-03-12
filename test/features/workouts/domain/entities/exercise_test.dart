@@ -10,7 +10,7 @@ void main() {
         name: 'Push-up',
         description: 'A basic bodyweight exercise',
         primaryMuscle: 'Chest',
-        equipment: 'Bodyweight',
+        category: 'Bodyweight',
         secondaryMuscles: ['Triceps', 'Shoulders'],
       );
 
@@ -19,7 +19,7 @@ void main() {
       expect(exercise.name, 'Push-up');
       expect(exercise.description, 'A basic bodyweight exercise');
       expect(exercise.primaryMuscle, 'Chest');
-      expect(exercise.equipment, 'Bodyweight');
+      expect(exercise.category, 'Bodyweight');
       expect(exercise.secondaryMuscles, ['Triceps', 'Shoulders']);
     });
 
@@ -30,7 +30,7 @@ void main() {
         name: 'Push-up',
         description: 'A basic bodyweight exercise',
         primaryMuscle: 'Chest',
-        equipment: 'Bodyweight',
+        category: 'Bodyweight',
         secondaryMuscles: ['Triceps'],
       );
 
@@ -39,7 +39,7 @@ void main() {
         name: 'Push-up',
         description: 'A basic bodyweight exercise',
         primaryMuscle: 'Chest',
-        equipment: 'Bodyweight',
+        category: 'Bodyweight',
         secondaryMuscles: ['Triceps'],
       );
 
@@ -55,7 +55,7 @@ void main() {
         name: 'Push-up',
         description: 'A basic bodyweight exercise',
         primaryMuscle: 'Chest',
-        equipment: 'Bodyweight',
+        category: 'Bodyweight',
         secondaryMuscles: [],
       );
 
@@ -67,7 +67,7 @@ void main() {
       expect(result, contains('id: 1'));
       expect(result, contains('name: Push-up'));
       expect(result, contains('primaryMuscle: Chest'));
-      expect(result, contains('equipment: Bodyweight'));
+      expect(result, contains('category: Bodyweight'));
     });
   });
 }

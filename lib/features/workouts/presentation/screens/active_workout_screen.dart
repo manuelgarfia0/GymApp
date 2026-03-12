@@ -99,7 +99,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         name: exerciseName,
         description: '',
         primaryMuscle: '',
-        equipment: '',
+        category: '',
         secondaryMuscles: [],
       );
 
@@ -140,7 +140,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         name: routineEx.exerciseName ?? 'Unknown Exercise',
         description: '',
         primaryMuscle: '',
-        equipment: '',
+        category: '',
         secondaryMuscles: [],
       );
       int targetSets = routineEx.sets > 0 ? routineEx.sets : 1;

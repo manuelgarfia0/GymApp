@@ -106,7 +106,7 @@ void main() {
             'name': 'Bench Press',
             'description': 'Compound chest exercise performed lying on a bench',
             'primaryMuscle': 'Chest',
-            'equipment': 'Barbell',
+            'category': 'Barbell',
             'secondaryMuscles': ['Triceps', 'Shoulders'],
           };
 
@@ -120,7 +120,7 @@ void main() {
             equals('Compound chest exercise performed lying on a bench'),
           );
           expect(dto.primaryMuscle, equals('Chest'));
-          expect(dto.equipment, equals('Barbell'));
+          expect(dto.category, equals('Barbell'));
           expect(dto.secondaryMuscles, equals(['Triceps', 'Shoulders']));
         },
       );
@@ -131,7 +131,7 @@ void main() {
           'name': 'Squat',
           'description': 'Compound leg exercise',
           'primaryMuscle': 'Quadriceps',
-          'equipment': 'Barbell',
+          'category': 'Barbell',
           'secondaryMuscles': ['Glutes', 'Hamstrings'],
         };
 
@@ -143,7 +143,7 @@ void main() {
         expect(entity.name, equals('Squat'));
         expect(entity.description, equals('Compound leg exercise'));
         expect(entity.primaryMuscle, equals('Quadriceps'));
-        expect(entity.equipment, equals('Barbell'));
+        expect(entity.category, equals('Barbell'));
         expect(entity.secondaryMuscles, equals(['Glutes', 'Hamstrings']));
       });
     });
@@ -398,7 +398,7 @@ void main() {
               'name': 'Push-up',
               'description': 'Bodyweight chest exercise',
               'primaryMuscle': 'Chest',
-              'equipment': 'Bodyweight',
+              'category': 'Bodyweight',
               'secondaryMuscles': ['Triceps'],
             },
             {
@@ -406,7 +406,7 @@ void main() {
               'name': 'Deadlift',
               'description': 'Compound full-body exercise',
               'primaryMuscle': 'Hamstrings',
-              'equipment': 'Barbell',
+              'category': 'Barbell',
               'secondaryMuscles': ['Glutes', 'Lower Back', 'Traps'],
             },
             {
@@ -414,7 +414,7 @@ void main() {
               'name': 'Plank',
               'description': 'Core stability exercise',
               'primaryMuscle': 'Core',
-              'equipment': 'Bodyweight',
+              'category': 'Bodyweight',
               'secondaryMuscles': [],
             },
           ];
@@ -514,7 +514,7 @@ void main() {
           'name': 'Solo Exercise',
           'description': 'Exercise with no secondary muscles',
           'primaryMuscle': 'Chest',
-          'equipment': 'Bodyweight',
+          'category': 'Bodyweight',
           'secondaryMuscles': [],
         };
 

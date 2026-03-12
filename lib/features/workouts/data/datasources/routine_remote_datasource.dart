@@ -45,10 +45,14 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
         ApiConstants.routinesEndpoint,
       ).replace(queryParameters: {'userId': userId.toString()});
 
+      print('🔍 Routine API: Calling ${uri.toString()}');
       final response = await apiClient.get(uri);
+      print('🔍 Routine API: Response status ${response.statusCode}');
+      print('🔍 Routine API: Response body ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
+        print('🔍 Routine API: Parsed ${data.length} routines');
         return data
             .map((json) => RoutineDto.fromJson(json as Map<String, dynamic>))
             .toList();
@@ -60,11 +64,14 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
             errorData?['message'] as String? ?? 'Failed to get user routines';
         throw Exception(errorMessage);
       }
-    } on SocketException {
+    } on SocketException catch (e) {
+      print('🔍 Routine API: SocketException - $e');
       throw Exception('No internet connection');
-    } on FormatException {
+    } on FormatException catch (e) {
+      print('🔍 Routine API: FormatException - $e');
       throw Exception('Invalid response format');
     } catch (e) {
+      print('🔍 Routine API: Unexpected error - $e');
       if (e is Exception) rethrow;
       throw Exception('Unexpected error: $e');
     }

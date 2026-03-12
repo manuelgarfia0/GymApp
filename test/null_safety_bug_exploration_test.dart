@@ -25,7 +25,7 @@ void main() {
           'name': 'Push-up',
           'description': null, // Campo nulo que causa el crash
           'primaryMuscle': 'Chest',
-          'equipment': 'Bodyweight',
+          'category': 'Bodyweight',
           'secondaryMuscles': ['Triceps', 'Shoulders'],
         };
 
@@ -51,7 +51,7 @@ void main() {
           'name': 'Squat',
           'description': null,
           'primaryMuscle': null, // Otro campo que podría ser nulo
-          'equipment': 'Barbell',
+          'category': 'Barbell',
           'secondaryMuscles': null,
         };
 
@@ -215,7 +215,7 @@ void main() {
             'name': 'Custom Exercise',
             'description': null,
             'primaryMuscle': 'Unknown',
-            'equipment': 'None',
+            'category': 'None',
             'secondaryMuscles': [],
           };
 

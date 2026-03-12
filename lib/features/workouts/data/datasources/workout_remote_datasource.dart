@@ -55,10 +55,14 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
         ApiConstants.workoutsEndpoint,
       ).replace(queryParameters: {'userId': userId.toString()});
 
+      print('🔍 Workout API: Calling ${uri.toString()}');
       final response = await apiClient.get(uri);
+      print('🔍 Workout API: Response status ${response.statusCode}');
+      print('🔍 Workout API: Response body ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
+        print('🔍 Workout API: Parsed ${data.length} workouts');
         return data
             .map((json) => WorkoutDto.fromJson(json as Map<String, dynamic>))
             .toList();
@@ -70,11 +74,14 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
             errorData?['message'] as String? ?? 'Failed to get user workouts';
         throw Exception(errorMessage);
       }
-    } on SocketException {
+    } on SocketException catch (e) {
+      print('🔍 Workout API: SocketException - $e');
       throw Exception('No internet connection');
-    } on FormatException {
+    } on FormatException catch (e) {
+      print('🔍 Workout API: FormatException - $e');
       throw Exception('Invalid response format');
     } catch (e) {
+      print('🔍 Workout API: Unexpected error - $e');
       if (e is Exception) rethrow;
       throw Exception('Unexpected error: $e');
     }

@@ -224,7 +224,7 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4.0),
                         child: Text(
-                          '${exercise.primaryMuscle} • ${exercise.equipment}',
+                          '${exercise.primaryMuscle} • ${exercise.category}',
                           style: TextStyle(
                             color: Colors.grey[500],
                             fontSize: 13,

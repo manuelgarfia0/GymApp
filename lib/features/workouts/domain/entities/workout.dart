@@ -71,6 +71,7 @@ class Workout {
 /// Pure Dart entity representing a set performed during a workout.
 /// Contains the actual performance data for an exercise set.
 class WorkoutSet {
+  final int? id;
   final int exerciseId;
   final String? exerciseName;
   final int exerciseOrder;
@@ -79,8 +80,10 @@ class WorkoutSet {
   final int reps;
   final DateTime timestamp;
   final String? notes;
+  final bool isModified;
 
   const WorkoutSet({
+    this.id,
     required this.exerciseId,
     this.exerciseName,
     required this.exerciseOrder,
@@ -89,6 +92,7 @@ class WorkoutSet {
     required this.reps,
     required this.timestamp,
     this.notes,
+    this.isModified = false,
   });
 
   @override

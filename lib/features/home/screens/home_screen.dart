@@ -38,24 +38,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadUserId() async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id') ?? 0;
+    final token = prefs.getString('jwt_token');
+
+    print('🔍 HomeScreen: Loading user data');
+    print('🔍 HomeScreen: User ID = $userId');
+    print('🔍 HomeScreen: Has token = ${token != null}');
+    if (token != null) {
+      print('🔍 HomeScreen: Token preview = ${token.substring(0, 20)}...');
+    }
+
     setState(() {
-      _userId = prefs.getInt('user_id') ?? 0;
+      _userId = userId;
     });
   }
 
   Future<void> _logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('jwt_token');
-    await prefs.remove('user_id');
+    try {
+      // Usar el repositorio de autenticación para logout
+      final authRepository = AuthDependencies.repository;
+      await authRepository.logout();
 
-    if (mounted) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              LoginScreen(loginUseCase: AuthDependencies.loginUseCase),
-        ),
-      );
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                LoginScreen(loginUseCase: AuthDependencies.loginUseCase),
+          ),
+        );
+      }
+    } catch (e) {
+      print('⚠️ HomeScreen: Error durante logout: $e');
+      // Incluso si hay error, navegar al login
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                LoginScreen(loginUseCase: AuthDependencies.loginUseCase),
+          ),
+        );
+      }
     }
   }
 
@@ -245,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               name: routineExercise.exerciseName ?? '',
                               description: '', // Valor por defecto
                               primaryMuscle: '', // Valor por defecto
-                              equipment: '', // Valor por defecto
+                              category: '', // Valor por defecto
                               secondaryMuscles: [], // Valor por defecto
                             );
                           }).toList();

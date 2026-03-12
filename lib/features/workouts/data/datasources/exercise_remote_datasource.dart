@@ -36,7 +36,17 @@ class ExerciseRemoteDatasourceImpl implements ExerciseRemoteDatasource {
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List<dynamic>;
+        final responseBody = response.body;
+        print('🔍 Exercise API Response: $responseBody');
+
+        final data = jsonDecode(responseBody) as List<dynamic>;
+        print('🔍 Parsed data length: ${data.length}');
+
+        // Log first exercise for debugging
+        if (data.isNotEmpty) {
+          print('🔍 First exercise data: ${data.first}');
+        }
+
         return data
             .map((json) => ExerciseDto.fromJson(json as Map<String, dynamic>))
             .toList();

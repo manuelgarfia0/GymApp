@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../../../core/storage/secure_storage_service.dart';
@@ -33,6 +34,19 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Almacenar token de forma segura
       await storageService.saveToken(token);
+
+      // Obtener información del usuario y guardar el user_id
+      try {
+        final userDto = await remoteDatasource.getCurrentUser();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('user_id', userDto.id);
+        print(
+          '💾 AuthRepository: User ID ${userDto.id} guardado en SharedPreferences',
+        );
+      } catch (e) {
+        print('⚠️ AuthRepository: Error guardando user_id: $e');
+        // No lanzar error aquí, el login fue exitoso
+      }
 
       return token;
     } on ServerException catch (e) {
@@ -195,6 +209,11 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       // Limpiar token almacenado
       await storageService.deleteToken();
+
+      // Limpiar user_id de SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_id');
+      print('💾 AuthRepository: User ID eliminado de SharedPreferences');
     } catch (e) {
       // Incluso si el almacenamiento falla, debemos completar el logout
       // Registrar error pero no lanzar para evitar problemas de logout
@@ -221,6 +240,8 @@ class AuthRepositoryImpl implements AuthRepository {
       if (e.type == ServerErrorType.authentication) {
         // Token inválido, limpiarlo y devolver null
         await storageService.deleteToken();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('user_id');
         throw AuthenticationFailure(e.message);
       }
       throw _mapServerExceptionToFailure(e);
@@ -239,6 +260,8 @@ class AuthRepositoryImpl implements AuthRepository {
           errorMessage.contains('unauthorized')) {
         // Token inválido, limpiarlo y devolver null
         await storageService.deleteToken();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('user_id');
         throw const AuthenticationFailure(
           'Session expired, please login again',
         );
@@ -254,6 +277,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
       // Para otros errores, limpiar token y devolver null (degradación elegante)
       await storageService.deleteToken();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('user_id');
       return null;
     }
   }
