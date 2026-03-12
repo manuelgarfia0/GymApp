@@ -1,5 +1,4 @@
-// Archivo: lib/core/network/api_client.dart
-
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../storage/secure_storage_service.dart';
 
@@ -28,5 +27,60 @@ class ApiClient extends http.BaseClient {
 
     // 4. Dejamos que la petición continúe su viaje hacia Spring Boot
     return _inner.send(request);
+  }
+
+  /// Override del método post para asegurar manejo correcto de Content-Type para JSON
+  ///
+  /// El paquete http puede sobrescribir el Content-Type configurado en send(),
+  /// especialmente cuando se pasa un String como body. Este override asegura
+  /// que las peticiones POST con cuerpo JSON mantengan el Content-Type correcto.
+  @override
+  Future<http.Response> post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    // Crear headers combinados, priorizando los headers explícitos
+    final combinedHeaders = <String, String>{};
+
+    // Agregar Content-Type por defecto para peticiones JSON
+    combinedHeaders['Content-Type'] = 'application/json';
+
+    // Sobrescribir con headers proporcionados si existen
+    if (headers != null) {
+      combinedHeaders.addAll(headers);
+    }
+
+    // Detectar si el cuerpo es JSON y asegurar Content-Type correcto
+    if (body != null && _isJsonBody(body)) {
+      // Forzar Content-Type a application/json para cuerpos JSON
+      combinedHeaders['Content-Type'] = 'application/json';
+    }
+
+    // Realizar la petición POST con headers explícitos
+    return super.post(
+      url,
+      headers: combinedHeaders,
+      body: body,
+      encoding: encoding,
+    );
+  }
+
+  /// Detecta si el cuerpo de la petición contiene contenido JSON
+  ///
+  /// Verifica si el body es un String que parece ser JSON válido
+  /// o si ya es un objeto que será serializado como JSON.
+  bool _isJsonBody(Object body) {
+    if (body is String) {
+      // Verificar si el String parece ser JSON
+      final trimmed = body.trim();
+      return (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'));
+    }
+
+    // Para otros tipos de objetos, asumir que serán serializados como JSON
+    // si no son tipos básicos de texto plano
+    return body is! String;
   }
 }
