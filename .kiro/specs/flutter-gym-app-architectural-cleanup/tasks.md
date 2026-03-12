@@ -1,0 +1,166 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Architectural Issues Validation
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bugs exist
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the 8 architectural bugs exist
+  - **Scoped PBT Approach**: Test each of the 8 specific bug conditions to ensure reproducibility
+  - Test implementation details from Bug Condition in design:
+    - API Contract Mismatch: JSON parsing fails with Java field names vs Flutter expected names
+    - Storage Inconsistency: JWT token read from SharedPreferences returns null when stored in SecureStorage
+    - Multiple ApiClient Instances: Feature modules create separate ApiClient instances instead of singleton
+    - Code Duplication: ExercisesScreen and ExerciseSelectionScreen duplicate exercise logic
+    - Double API Calls: LoginUser executes redundant POST /api/auth/login + GET /api/auth/me
+    - Clean Architecture Violations: AuthRepositoryImpl directly imports SharedPreferences
+    - Production Debug Code: LoginScreen displays debug UI elements in production builds
+    - Deprecated APIs: ActiveWorkoutScreen uses WillPopScope instead of PopScope
+  - The test assertions should match the Expected Behavior Properties from design
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bugs exist)
+  - Document counterexamples found to understand root cause
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9_
+
+- [-] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Non-Affected System Operations
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy operations:
+    - Authentication flows with valid tokens work correctly
+    - Navigation between screens provides smooth transitions
+    - User interactions (clicks, inputs) function properly
+    - State management maintains proper lifecycle
+    - Error handling displays appropriate feedback
+    - Cross-platform functionality works on Android/iOS
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
+
+- [ ] 3. Fix architectural issues
+
+  - [ ] 3.1 Create API contract mapping for Exercise model
+    - Create `lib/features/workouts/data/models/exercise_model.dart`
+    - Implement fromJson mapping: `primaryMuscleName` → `primaryMuscle`, `equipmentName` → `equipment`, `secondaryMuscleNames` → `secondaryMuscles`
+    - Implement toJson with correct field mapping
+    - Update existing Exercise entity to use new model
+    - _Bug_Condition: JSON parsing fails with Java field names (primaryMuscleName, equipmentName, secondaryMuscleNames)_
+    - _Expected_Behavior: Successful JSON parsing with proper field mapping_
+    - _Preservation: Maintain existing exercise functionality and user experience_
+    - _Requirements: 2.1_
+
+  - [ ] 3.2 Fix storage inconsistency for JWT token access
+    - Update `lib/features/home/screens/home_screen.dart` _loadUserId method
+    - Replace SharedPreferences with SecureStorageService for JWT token access
+    - Maintain SharedPreferences only for non-sensitive user_id
+    - Ensure consistent storage access across all components
+    - _Bug_Condition: HomeScreen reads JWT from SharedPreferences when stored in SecureStorage_
+    - _Expected_Behavior: Consistent JWT token access from SecureStorage_
+    - _Preservation: Maintain secure authentication and existing user flows_
+    - _Requirements: 2.2_
+
+  - [ ] 3.3 Implement singleton dependency injection
+    - Create `lib/core/di/global_dependencies.dart`
+    - Implement singleton ApiClient shared across all feature modules
+    - Implement singleton SecureStorageService
+    - Refactor AuthDependencies, WorkoutDependencies, ProfileDependencies to use global singletons
+    - Update all feature modules to use shared instances
+    - _Bug_Condition: Multiple feature modules create separate ApiClient instances_
+    - _Expected_Behavior: Single shared ApiClient instance through proper dependency injection_
+    - _Preservation: Maintain proper instance management and lifecycle handling_
+    - _Requirements: 2.3_
+
+  - [ ] 3.4 Create shared exercise component to eliminate code duplication
+    - Create `lib/core/widgets/exercise_list_component.dart`
+    - Extract common exercise loading, search, and error handling logic
+    - Implement reusable ExerciseListComponent widget
+    - Refactor ExercisesScreen to use shared component
+    - Refactor ExerciseSelectionScreen to use shared component
+    - Remove duplicated code from both screens
+    - _Bug_Condition: ExercisesScreen and ExerciseSelectionScreen duplicate identical logic_
+    - _Expected_Behavior: Shared component containing common exercise functionality_
+    - _Preservation: Maintain same user experience and exercise functionality_
+    - _Requirements: 2.4_
+
+  - [ ] 3.5 Optimize API calls to eliminate redundancy
+    - Update `lib/features/auth/domain/use_cases/login_user.dart`
+    - Maintain only POST /api/auth/login call
+    - Remove redundant GET /api/auth/me calls
+    - Extract user information from JWT token payload instead
+    - Update authentication flow to use decoded token data
+    - _Bug_Condition: LoginUser executes redundant POST /api/auth/login + GET /api/auth/me_
+    - _Expected_Behavior: Single necessary API call with token-based user data_
+    - _Preservation: Maintain secure authentication and user data access_
+    - _Requirements: 2.5_
+
+  - [ ] 3.6 Fix clean architecture violations in data layer
+    - Update `lib/features/auth/data/repositories/auth_repository_impl.dart`
+    - Remove direct SharedPreferences import
+    - Use only injected SecureStorageService
+    - Create StorageRepository abstraction in domain layer if needed
+    - Ensure proper separation between data and infrastructure layers
+    - _Bug_Condition: AuthRepositoryImpl directly imports SharedPreferences violating clean architecture_
+    - _Expected_Behavior: Proper service abstractions without direct infrastructure dependencies_
+    - _Preservation: Maintain clean architecture separation and testability_
+    - _Requirements: 2.6_
+
+  - [ ] 3.7 Fix presentation layer clean architecture violations
+    - Update screens that directly access SharedPreferences for user data
+    - Implement proper use cases and repositories for user data access
+    - Remove direct storage access from presentation layer
+    - Ensure data flows through proper clean architecture layers
+    - _Bug_Condition: Presentation layer directly accesses SharedPreferences for user_id_
+    - _Expected_Behavior: User data access through proper use cases and repositories_
+    - _Preservation: Maintain clean architecture principles and separation of concerns_
+    - _Requirements: 2.7_
+
+  - [ ] 3.8 Remove production debug code
+    - Update `lib/features/auth/presentation/screens/login_screen.dart`
+    - Condition debug UI elements with `kDebugMode`
+    - Remove "Run Network Diagnostics" and "Test Login with Credentials" buttons from production
+    - Remove hardcoded success messages and debug logs
+    - Ensure clean production UI without debug elements
+    - _Bug_Condition: LoginScreen displays debug UI elements in production builds_
+    - _Expected_Behavior: Production-ready UI without debug elements_
+    - _Preservation: Maintain development debugging capabilities in debug mode_
+    - _Requirements: 2.8_
+
+  - [ ] 3.9 Migrate deprecated APIs to modern Flutter APIs
+    - Update `lib/features/workouts/presentation/screens/active_workout_screen.dart`
+    - Replace `WillPopScope` with `PopScope` (Flutter 3.12+)
+    - Update parameters and callbacks according to new API
+    - Maintain identical back navigation functionality
+    - Test on both Android and iOS platforms
+    - _Bug_Condition: ActiveWorkoutScreen uses deprecated WillPopScope API_
+    - _Expected_Behavior: Modern PopScope API usage with same functionality_
+    - _Preservation: Maintain identical navigation behavior and user experience_
+    - _Requirements: 2.9_
+
+  - [ ] 3.10 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Architectural Issues Resolution
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms all 8 architectural issues are resolved
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bugs are fixed)
+    - Verify all 8 bug conditions now produce expected behavior
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9_
+
+  - [ ] 3.11 Verify preservation tests still pass
+    - **Property 2: Preservation** - Non-Affected System Operations
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all non-affected functionality still works after architectural fixes
+    - Verify authentication flows, navigation, user interactions, and cross-platform functionality
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Run complete test suite including unit tests, integration tests, and property-based tests
+  - Verify all 8 architectural issues are resolved
+  - Confirm no regressions in existing functionality
+  - Test on both Android and iOS platforms
+  - Ensure app builds and runs correctly in both debug and production modes
+  - Ask the user if questions arise about the architectural cleanup
