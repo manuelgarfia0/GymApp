@@ -1,18 +1,18 @@
-/// Pure Dart entity representing an exercise in the domain layer.
-/// Contains no Flutter dependencies and represents the business concept of an exercise.
+/// Entidad Dart pura que representa un ejercicio en la capa de dominio.
+/// No contiene dependencias de Flutter y representa el concepto de negocio de un ejercicio.
 class Exercise {
   final int id;
   final String name;
-  final String description;
-  final String primaryMuscle;
+  final String? description; // Cambiado a nullable para consistencia con DTO
+  final String? primaryMuscle; // Cambiado a nullable para consistencia con DTO
   final String equipment;
   final List<String> secondaryMuscles;
 
   const Exercise({
     required this.id,
     required this.name,
-    required this.description,
-    required this.primaryMuscle,
+    this.description, // Cambiado a opcional para manejar valores nulos
+    this.primaryMuscle, // Cambiado a opcional para manejar valores nulos
     required this.equipment,
     required this.secondaryMuscles,
   });

@@ -63,9 +63,10 @@ class GetExercises {
     return exercises
         .where(
           (exercise) =>
-              exercise.primaryMuscle.toLowerCase().contains(
-                muscleGroup.toLowerCase(),
-              ) ||
+              exercise.primaryMuscle?.toLowerCase().contains(
+                    muscleGroup.toLowerCase(),
+                  ) ==
+                  true ||
               exercise.secondaryMuscles.any(
                 (muscle) =>
                     muscle.toLowerCase().contains(muscleGroup.toLowerCase()),

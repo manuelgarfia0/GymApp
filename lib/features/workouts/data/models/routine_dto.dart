@@ -1,11 +1,12 @@
 import '../../domain/entities/routine.dart';
 
-/// Data Transfer Object for Routine
-/// Handles JSON serialization/deserialization with the Spring Boot backend
+/// Data Transfer Object para Routine
+/// Maneja la serialización/deserialización JSON con el backend Spring Boot
 class RoutineDto {
   final int? id;
   final String name;
-  final String description;
+  final String?
+  description; // Cambiado a nullable para manejar valores nulos del backend
   final int userId;
   final List<RoutineExerciseDto> exercises;
   final String? createdAt;
@@ -13,18 +14,19 @@ class RoutineDto {
   const RoutineDto({
     this.id,
     required this.name,
-    required this.description,
+    this.description, // Cambiado a opcional para manejar valores nulos
     required this.userId,
     required this.exercises,
     this.createdAt,
   });
 
-  /// Creates RoutineDto from JSON response from Spring Boot API
+  /// Crea RoutineDto desde respuesta JSON de la API Spring Boot
   factory RoutineDto.fromJson(Map<String, dynamic> json) {
     return RoutineDto(
       id: json['id'] as int?,
       name: json['name'] as String,
-      description: json['description'] as String,
+      description:
+          json['description'] as String?, // Maneja valores nulos apropiadamente
       userId: json['userId'] as int,
       exercises:
           (json['exercises'] as List<dynamic>?)
@@ -37,25 +39,26 @@ class RoutineDto {
     );
   }
 
-  /// Converts RoutineDto to JSON for API requests
+  /// Convierte RoutineDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       'name': name,
-      'description': description,
+      if (description != null)
+        'description': description, // Solo incluye si no es nulo
       'userId': userId,
       'exercises': exercises.map((e) => e.toJson()).toList(),
       if (createdAt != null) 'createdAt': createdAt,
     };
   }
 
-  /// Converts DTO to domain entity
-  /// This ensures clean separation between data and domain layers
+  /// Convierte DTO a entidad del dominio
+  /// Esto asegura separación limpia entre capas de datos y dominio
   Routine toEntity() {
     return Routine(
       id: id,
       name: name,
-      description: description,
+      description: description, // Pasa el valor nulo si existe
       userId: userId,
       exercises: exercises.map((e) => e.toEntity()).toList(),
       createdAt: createdAt != null ? DateTime.parse(createdAt!) : null,

@@ -13,7 +13,7 @@ void main() {
         id: 1,
         username: 'testuser',
         email: 'test@example.com',
-        premium: true,
+        isPremium: true,
         languagePreference: 'en',
         createdAt: '2023-01-01T00:00:00Z',
         firstName: 'John',
@@ -29,7 +29,7 @@ void main() {
       expect(entity.userId, dto.id);
       expect(entity.username, dto.username);
       expect(entity.email, dto.email);
-      expect(entity.isPremium, dto.premium);
+      expect(entity.isPremium, dto.isPremium);
       expect(entity.languagePreference, dto.languagePreference);
       expect(entity.firstName, dto.firstName);
       expect(entity.lastName, dto.lastName);
@@ -66,7 +66,7 @@ void main() {
       expect(dto.id, entity.userId);
       expect(dto.username, entity.username);
       expect(dto.email, entity.email);
-      expect(dto.premium, entity.isPremium);
+      expect(dto.isPremium, entity.isPremium);
       expect(dto.languagePreference, entity.languagePreference);
       expect(dto.firstName, entity.firstName);
       expect(dto.lastName, entity.lastName);
@@ -87,7 +87,7 @@ void main() {
           'id': 42,
           'username': 'gymuser',
           'email': 'gym@example.com',
-          'premium': true,
+          'isPremium': true,
           'languagePreference': 'en',
           'createdAt': '2023-06-15T10:30:00Z',
         };
@@ -99,7 +99,7 @@ void main() {
         expect(dto.id, 42);
         expect(dto.username, 'gymuser');
         expect(dto.email, 'gym@example.com');
-        expect(dto.premium, true);
+        expect(dto.isPremium, true);
         expect(dto.languagePreference, 'en');
         expect(dto.createdAt, '2023-06-15T10:30:00Z');
 
@@ -120,7 +120,7 @@ void main() {
         'id': 1,
         'username': 'fitnessuser',
         'email': 'fitness@example.com',
-        'premium': false,
+        'isPremium': false,
         'languagePreference': null,
         'createdAt': '2023-01-01T00:00:00Z',
       };
@@ -132,7 +132,7 @@ void main() {
       // Assert - Verify UI display values match original behavior
       expect(entity.username, 'fitnessuser'); // Username display
       expect(entity.email, 'fitness@example.com'); // Email display
-      expect(entity.isPremium, false); // Premium status (was 'premium' in DTO)
+      expect(entity.isPremium, false); // Premium status
       expect(entity.languagePreference, isNull); // Null handling
 
       // Verify premium display logic works the same
@@ -144,16 +144,16 @@ void main() {
       // This test verifies that error cases are handled the same way
 
       // Arrange - Invalid/empty JSON (edge case from original implementation)
-      final invalidJson = <String, dynamic>{};
+      final invalidJson = <String, dynamic>{'isPremium': false};
 
       // Act - Parse with graceful defaults
       final dto = UserProfileDto.fromJson(invalidJson);
 
       // Assert - Verify same default behavior as original UserDTO
-      expect(dto.id, 0); // Default ID
-      expect(dto.username, ''); // Default username
-      expect(dto.email, ''); // Default email
-      expect(dto.premium, false); // Default premium status
+      expect(dto.id, isNull); // Null ID (no fallback in fromJson)
+      expect(dto.username, isNull); // Null username (no fallback in fromJson)
+      expect(dto.email, isNull); // Null email (no fallback in fromJson)
+      expect(dto.isPremium, false); // Provided premium status
       expect(dto.languagePreference, isNull); // Null for optional fields
     });
   });

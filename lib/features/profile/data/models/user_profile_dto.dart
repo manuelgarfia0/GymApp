@@ -1,10 +1,10 @@
 import '../../domain/entities/user_profile.dart';
 
 class UserProfileDto {
-  final int id;
-  final String username;
-  final String email;
-  final bool premium;
+  final int? id; // Cambiado a nullable - no enmascarar con fallback
+  final String? username; // Cambiado a nullable - no enmascarar con fallback
+  final String? email; // Cambiado a nullable - no enmascarar con fallback
+  final bool isPremium; // Estandarizado naming: isPremium consistentemente
   final String? languagePreference;
   final String? createdAt;
   final String? firstName;
@@ -13,10 +13,10 @@ class UserProfileDto {
   final Map<String, dynamic>? preferences;
 
   UserProfileDto({
-    required this.id,
-    required this.username,
-    required this.email,
-    required this.premium,
+    this.id, // Cambiado a opcional
+    this.username, // Cambiado a opcional
+    this.email, // Cambiado a opcional
+    required this.isPremium, // Estandarizado naming
     this.languagePreference,
     this.createdAt,
     this.firstName,
@@ -25,47 +25,56 @@ class UserProfileDto {
     this.preferences,
   });
 
-  /// Factory constructor to create UserProfileDto from JSON
+  /// Constructor factory para crear UserProfileDto desde JSON
   factory UserProfileDto.fromJson(Map<String, dynamic> json) {
     return UserProfileDto(
-      id: json['id'] ?? 0,
-      username: json['username'] ?? '',
-      email: json['email'] ?? '',
-      premium: json['premium'] ?? false,
-      languagePreference: json['languagePreference'],
-      createdAt: json['createdAt'],
-      firstName: json['firstName'],
-      lastName: json['lastName'],
-      dateOfBirth: json['dateOfBirth'],
+      id: json['id'] as int?, // Sin fallback - preserva valores nulos legítimos
+      username:
+          json['username']
+              as String?, // Sin fallback - preserva valores nulos legítimos
+      email:
+          json['email']
+              as String?, // Sin fallback - preserva valores nulos legítimos
+      isPremium:
+          json['isPremium'] as bool? ??
+          json['premium'] as bool? ??
+          false, // Maneja ambos nombres de campo
+      languagePreference: json['languagePreference'] as String?,
+      createdAt: json['createdAt'] as String?,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
+      dateOfBirth: json['dateOfBirth'] as String?,
       preferences: json['preferences'] != null
           ? Map<String, dynamic>.from(json['preferences'])
           : null,
     );
   }
 
-  /// Convert to JSON for API requests
+  /// Convierte a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'username': username,
-      'email': email,
-      'premium': premium,
-      'languagePreference': languagePreference,
-      'createdAt': createdAt,
-      'firstName': firstName,
-      'lastName': lastName,
-      'dateOfBirth': dateOfBirth,
-      'preferences': preferences,
+      if (id != null) 'id': id,
+      if (username != null) 'username': username,
+      if (email != null) 'email': email,
+      'isPremium': isPremium, // Usa naming estandarizado
+      if (languagePreference != null) 'languagePreference': languagePreference,
+      if (createdAt != null) 'createdAt': createdAt,
+      if (firstName != null) 'firstName': firstName,
+      if (lastName != null) 'lastName': lastName,
+      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+      if (preferences != null) 'preferences': preferences,
     };
   }
 
-  /// Convert DTO to domain entity
+  /// Convierte DTO a entidad del dominio
   UserProfile toEntity() {
     return UserProfile(
-      userId: id,
-      username: username,
-      email: email,
-      isPremium: premium,
+      userId:
+          id ??
+          0, // Fallback solo en conversión a entidad, no en deserialización
+      username: username ?? '', // Fallback solo en conversión a entidad
+      email: email ?? '', // Fallback solo en conversión a entidad
+      isPremium: isPremium,
       languagePreference: languagePreference,
       createdAt: createdAt != null ? DateTime.tryParse(createdAt!) : null,
       firstName: firstName,
@@ -75,13 +84,13 @@ class UserProfileDto {
     );
   }
 
-  /// Create DTO from domain entity
+  /// Crea DTO desde entidad del dominio
   factory UserProfileDto.fromEntity(UserProfile entity) {
     return UserProfileDto(
       id: entity.userId,
       username: entity.username,
       email: entity.email,
-      premium: entity.isPremium,
+      isPremium: entity.isPremium,
       languagePreference: entity.languagePreference,
       createdAt: entity.createdAt?.toIso8601String(),
       firstName: entity.firstName,

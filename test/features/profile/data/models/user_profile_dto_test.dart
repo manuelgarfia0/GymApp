@@ -10,7 +10,7 @@ void main() {
         'id': 1,
         'username': 'testuser',
         'email': 'test@example.com',
-        'premium': true,
+        'isPremium': true,
         'languagePreference': 'en',
         'createdAt': '2023-01-01T00:00:00Z',
         'firstName': 'Test',
@@ -26,7 +26,7 @@ void main() {
       expect(dto.id, 1);
       expect(dto.username, 'testuser');
       expect(dto.email, 'test@example.com');
-      expect(dto.premium, true);
+      expect(dto.isPremium, true);
       expect(dto.languagePreference, 'en');
       expect(dto.firstName, 'Test');
       expect(dto.lastName, 'User');
@@ -39,7 +39,7 @@ void main() {
         id: 1,
         username: 'testuser',
         email: 'test@example.com',
-        premium: true,
+        isPremium: true,
         languagePreference: 'en',
         createdAt: '2023-01-01T00:00:00Z',
         firstName: 'Test',
@@ -86,7 +86,7 @@ void main() {
       expect(dto.id, 1);
       expect(dto.username, 'testuser');
       expect(dto.email, 'test@example.com');
-      expect(dto.premium, true);
+      expect(dto.isPremium, true);
       expect(dto.languagePreference, 'en');
       expect(dto.firstName, 'Test');
       expect(dto.lastName, 'User');
@@ -97,22 +97,23 @@ void main() {
 
     test('should handle null values gracefully', () {
       // Arrange
-      final json = {
-        'id': 1,
-        'username': 'testuser',
-        'email': 'test@example.com',
-        'premium': false,
-      };
+      final json = {'isPremium': false};
 
       // Act
       final dto = UserProfileDto.fromJson(json);
       final entity = dto.toEntity();
 
       // Assert
+      expect(dto.id, isNull);
+      expect(dto.username, isNull);
+      expect(dto.email, isNull);
       expect(dto.languagePreference, isNull);
       expect(dto.firstName, isNull);
       expect(dto.lastName, isNull);
       expect(dto.preferences, isNull);
+      expect(entity.userId, 0); // Fallback in toEntity
+      expect(entity.username, ''); // Fallback in toEntity
+      expect(entity.email, ''); // Fallback in toEntity
       expect(entity.languagePreference, isNull);
       expect(entity.firstName, isNull);
       expect(entity.lastName, isNull);

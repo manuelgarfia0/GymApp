@@ -1,9 +1,9 @@
-/// Pure Dart entity representing a routine in the domain layer.
-/// Contains no Flutter dependencies and represents the business concept of a workout routine.
+/// Entidad Dart pura que representa una rutina en la capa de dominio.
+/// No contiene dependencias de Flutter y representa el concepto de negocio de una rutina de ejercicios.
 class Routine {
   final int? id;
   final String name;
-  final String description;
+  final String? description; // Cambiado a nullable para consistencia con DTO
   final int userId;
   final List<RoutineExercise> exercises;
   final DateTime? createdAt;
@@ -11,7 +11,7 @@ class Routine {
   const Routine({
     this.id,
     required this.name,
-    required this.description,
+    this.description, // Cambiado a opcional para manejar valores nulos
     required this.userId,
     required this.exercises,
     this.createdAt,
@@ -55,8 +55,8 @@ class Routine {
   }
 }
 
-/// Pure Dart entity representing an exercise within a routine.
-/// Defines the parameters for how an exercise should be performed in a routine.
+/// Entidad Dart pura que representa un ejercicio dentro de una rutina.
+/// Define los parámetros de cómo debe realizarse un ejercicio en una rutina.
 class RoutineExercise {
   final int? id;
   final int exerciseId;

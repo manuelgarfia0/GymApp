@@ -1,11 +1,12 @@
 import '../../domain/entities/workout.dart';
 
-/// Data Transfer Object for Workout
-/// Handles JSON serialization/deserialization with the Spring Boot backend
+/// Data Transfer Object para Workout
+/// Maneja la serialización/deserialización JSON con el backend Spring Boot
 class WorkoutDto {
   final int? id;
   final String name;
-  final String startTime;
+  final String?
+  startTime; // Cambiado a nullable para manejar valores nulos del backend
   final String? endTime;
   final int userId;
   final int? routineId;
@@ -14,19 +15,20 @@ class WorkoutDto {
   const WorkoutDto({
     this.id,
     required this.name,
-    required this.startTime,
+    this.startTime, // Cambiado a opcional para manejar valores nulos
     this.endTime,
     required this.userId,
     this.routineId,
     required this.sets,
   });
 
-  /// Creates WorkoutDto from JSON response from Spring Boot API
+  /// Crea WorkoutDto desde respuesta JSON de la API Spring Boot
   factory WorkoutDto.fromJson(Map<String, dynamic> json) {
     return WorkoutDto(
       id: json['id'] as int?,
       name: json['name'] as String,
-      startTime: json['startTime'] as String,
+      startTime:
+          json['startTime'] as String?, // Maneja valores nulos apropiadamente
       endTime: json['endTime'] as String?,
       userId: json['userId'] as int,
       routineId: json['routineId'] as int?,
@@ -38,12 +40,13 @@ class WorkoutDto {
     );
   }
 
-  /// Converts WorkoutDto to JSON for API requests
+  /// Convierte WorkoutDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       'name': name,
-      'startTime': startTime,
+      if (startTime != null)
+        'startTime': startTime, // Solo incluye si no es nulo
       if (endTime != null) 'endTime': endTime,
       'userId': userId,
       if (routineId != null) 'routineId': routineId,
@@ -51,13 +54,15 @@ class WorkoutDto {
     };
   }
 
-  /// Converts DTO to domain entity
-  /// This ensures clean separation between data and domain layers
+  /// Convierte DTO a entidad del dominio
+  /// Esto asegura separación limpia entre capas de datos y dominio
   Workout toEntity() {
     return Workout(
       id: id,
       name: name,
-      startTime: DateTime.parse(startTime),
+      startTime: startTime != null
+          ? DateTime.parse(startTime!)
+          : DateTime.now(), // Fallback a tiempo actual si es nulo
       endTime: endTime != null ? DateTime.parse(endTime!) : null,
       userId: userId,
       routineId: routineId,
@@ -105,8 +110,8 @@ class WorkoutDto {
   }
 }
 
-/// Data Transfer Object for WorkoutSet
-/// Handles JSON serialization/deserialization for sets within workouts
+/// Data Transfer Object para WorkoutSet
+/// Maneja la serialización/deserialización JSON para sets dentro de workouts
 class WorkoutSetDto {
   final int exerciseId;
   final String? exerciseName;
@@ -114,7 +119,8 @@ class WorkoutSetDto {
   final int setNumber;
   final double weight;
   final int reps;
-  final String timestamp;
+  final String?
+  timestamp; // Cambiado a nullable para manejar valores nulos del backend
   final String? notes;
 
   const WorkoutSetDto({
@@ -124,11 +130,11 @@ class WorkoutSetDto {
     required this.setNumber,
     required this.weight,
     required this.reps,
-    required this.timestamp,
+    this.timestamp, // Cambiado a opcional para manejar valores nulos
     this.notes,
   });
 
-  /// Creates WorkoutSetDto from JSON response from Spring Boot API
+  /// Crea WorkoutSetDto desde respuesta JSON de la API Spring Boot
   factory WorkoutSetDto.fromJson(Map<String, dynamic> json) {
     return WorkoutSetDto(
       exerciseId: json['exerciseId'] as int,
@@ -137,12 +143,13 @@ class WorkoutSetDto {
       setNumber: json['setNumber'] as int,
       weight: (json['weight'] as num).toDouble(),
       reps: json['reps'] as int,
-      timestamp: json['timestamp'] as String,
+      timestamp:
+          json['timestamp'] as String?, // Maneja valores nulos apropiadamente
       notes: json['notes'] as String?,
     );
   }
 
-  /// Converts WorkoutSetDto to JSON for API requests
+  /// Convierte WorkoutSetDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       'exerciseId': exerciseId,
@@ -151,13 +158,14 @@ class WorkoutSetDto {
       'setNumber': setNumber,
       'weight': weight,
       'reps': reps,
-      'timestamp': timestamp,
+      if (timestamp != null)
+        'timestamp': timestamp, // Solo incluye si no es nulo
       if (notes != null) 'notes': notes,
     };
   }
 
-  /// Converts DTO to domain entity
-  /// This ensures clean separation between data and domain layers
+  /// Convierte DTO a entidad del dominio
+  /// Esto asegura separación limpia entre capas de datos y dominio
   WorkoutSet toEntity() {
     return WorkoutSet(
       exerciseId: exerciseId,
@@ -166,7 +174,9 @@ class WorkoutSetDto {
       setNumber: setNumber,
       weight: weight,
       reps: reps,
-      timestamp: DateTime.parse(timestamp),
+      timestamp: timestamp != null
+          ? DateTime.parse(timestamp!)
+          : DateTime.now(), // Fallback a tiempo actual si es nulo
       notes: notes,
     );
   }

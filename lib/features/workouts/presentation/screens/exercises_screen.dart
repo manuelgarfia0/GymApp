@@ -280,7 +280,8 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  exercise.description,
+                                  exercise.description ??
+                                      'No description available', // Maneja descripción nula
                                   style: TextStyle(
                                     color: Colors.grey[400],
                                     fontSize: 13,
