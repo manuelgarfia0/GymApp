@@ -1,12 +1,11 @@
 import '../../domain/entities/workout.dart';
 
 /// Data Transfer Object para Workout
-/// Maneja la serialización/deserialización JSON con el backend Spring Boot
 class WorkoutDto {
   final int? id;
   final String name;
-  final String?
-  startTime; // Cambiado a nullable para manejar valores nulos del backend
+  final String? notes; // AÑADIDO: el backend tiene este campo
+  final String? startTime;
   final String? endTime;
   final int userId;
   final int? routineId;
@@ -15,20 +14,20 @@ class WorkoutDto {
   const WorkoutDto({
     this.id,
     required this.name,
-    this.startTime, // Cambiado a opcional para manejar valores nulos
+    this.notes,
+    this.startTime,
     this.endTime,
     required this.userId,
     this.routineId,
     required this.sets,
   });
 
-  /// Crea WorkoutDto desde respuesta JSON de la API Spring Boot
   factory WorkoutDto.fromJson(Map<String, dynamic> json) {
     return WorkoutDto(
       id: json['id'] as int?,
       name: json['name'] as String,
-      startTime:
-          json['startTime'] as String?, // Maneja valores nulos apropiadamente
+      notes: json['notes'] as String?,
+      startTime: json['startTime'] as String?,
       endTime: json['endTime'] as String?,
       userId: json['userId'] as int,
       routineId: json['routineId'] as int?,
@@ -40,13 +39,12 @@ class WorkoutDto {
     );
   }
 
-  /// Convierte WorkoutDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       'name': name,
-      if (startTime != null)
-        'startTime': startTime, // Solo incluye si no es nulo
+      if (notes != null) 'notes': notes,
+      if (startTime != null) 'startTime': startTime,
       if (endTime != null) 'endTime': endTime,
       'userId': userId,
       if (routineId != null) 'routineId': routineId,
@@ -54,163 +52,98 @@ class WorkoutDto {
     };
   }
 
-  /// Convierte DTO a entidad del dominio
-  /// Esto asegura separación limpia entre capas de datos y dominio
   Workout toEntity() {
     return Workout(
       id: id,
       name: name,
+      notes: notes,
       startTime: startTime != null
           ? DateTime.parse(startTime!)
-          : DateTime.now(), // Fallback a tiempo actual si es nulo
+          : DateTime.now(),
       endTime: endTime != null ? DateTime.parse(endTime!) : null,
       userId: userId,
       routineId: routineId,
       sets: sets.map((e) => e.toEntity()).toList(),
     );
   }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is WorkoutDto &&
-        other.id == id &&
-        other.name == name &&
-        other.startTime == startTime &&
-        other.endTime == endTime &&
-        other.userId == userId &&
-        other.routineId == routineId &&
-        _listEquals(other.sets, sets);
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      startTime,
-      endTime,
-      userId,
-      routineId,
-      sets.length,
-    );
-  }
-
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  @override
-  String toString() {
-    return 'WorkoutDto(id: $id, name: $name, startTime: $startTime, sets: ${sets.length})';
-  }
 }
 
 /// Data Transfer Object para WorkoutSet
-/// Maneja la serialización/deserialización JSON para sets dentro de workouts
+/// Campos alineados con el backend Spring Boot WorkoutSetDTO:
+///   - SIN "timestamp" (no existe en el backend)
+///   - CON "isWarmup"   → Jackson serializa como "warmup"
+///   - CON "isCompleted" → Jackson serializa como "completed"
 class WorkoutSetDto {
+  final int? id;
   final int exerciseId;
   final String? exerciseName;
   final int exerciseOrder;
   final int setNumber;
   final double weight;
   final int reps;
-  final String?
-  timestamp; // Cambiado a nullable para manejar valores nulos del backend
   final String? notes;
+  final bool isWarmup;
+  final bool isCompleted;
 
   const WorkoutSetDto({
+    this.id,
     required this.exerciseId,
     this.exerciseName,
     required this.exerciseOrder,
     required this.setNumber,
     required this.weight,
     required this.reps,
-    this.timestamp, // Cambiado a opcional para manejar valores nulos
     this.notes,
+    this.isWarmup = false,
+    this.isCompleted = false,
   });
 
-  /// Crea WorkoutSetDto desde respuesta JSON de la API Spring Boot
   factory WorkoutSetDto.fromJson(Map<String, dynamic> json) {
     return WorkoutSetDto(
+      id: json['id'] as int?,
       exerciseId: json['exerciseId'] as int,
       exerciseName: json['exerciseName'] as String?,
       exerciseOrder: json['exerciseOrder'] as int,
       setNumber: json['setNumber'] as int,
       weight: (json['weight'] as num).toDouble(),
       reps: json['reps'] as int,
-      timestamp:
-          json['timestamp'] as String?, // Maneja valores nulos apropiadamente
       notes: json['notes'] as String?,
+      // Jackson serializa boolean isWarmup() como "warmup" (elimina el prefijo "is")
+      isWarmup: json['warmup'] as bool? ?? json['isWarmup'] as bool? ?? false,
+      isCompleted:
+          json['completed'] as bool? ?? json['isCompleted'] as bool? ?? false,
     );
   }
 
-  /// Convierte WorkoutSetDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
+      if (id != null) 'id': id,
       'exerciseId': exerciseId,
       if (exerciseName != null) 'exerciseName': exerciseName,
       'exerciseOrder': exerciseOrder,
       'setNumber': setNumber,
       'weight': weight,
       'reps': reps,
-      if (timestamp != null)
-        'timestamp': timestamp, // Solo incluye si no es nulo
       if (notes != null) 'notes': notes,
+      // El backend espera "isWarmup" e "isCompleted" como nombres de campo
+      'isWarmup': isWarmup,
+      'isCompleted': isCompleted,
     };
   }
 
-  /// Convierte DTO a entidad del dominio
-  /// Esto asegura separación limpia entre capas de datos y dominio
   WorkoutSet toEntity() {
     return WorkoutSet(
+      id: id,
       exerciseId: exerciseId,
       exerciseName: exerciseName,
       exerciseOrder: exerciseOrder,
       setNumber: setNumber,
       weight: weight,
       reps: reps,
-      timestamp: timestamp != null
-          ? DateTime.parse(timestamp!)
-          : DateTime.now(), // Fallback a tiempo actual si es nulo
+      timestamp: DateTime.now(), // solo para uso local, no viene del backend
       notes: notes,
+      isWarmup: isWarmup,
+      isCompleted: isCompleted,
     );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is WorkoutSetDto &&
-        other.exerciseId == exerciseId &&
-        other.exerciseName == exerciseName &&
-        other.exerciseOrder == exerciseOrder &&
-        other.setNumber == setNumber &&
-        other.weight == weight &&
-        other.reps == reps &&
-        other.timestamp == timestamp &&
-        other.notes == notes;
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      exerciseId,
-      exerciseName,
-      exerciseOrder,
-      setNumber,
-      weight,
-      reps,
-      timestamp,
-      notes,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'WorkoutSetDto(exerciseId: $exerciseId, setNumber: $setNumber, weight: $weight, reps: $reps)';
   }
 }

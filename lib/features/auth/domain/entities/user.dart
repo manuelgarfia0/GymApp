@@ -1,4 +1,4 @@
-// Domain entity for User - pure Dart, no Flutter dependencies
+/// Entidad de dominio para User.
 class User {
   final int id;
   final String username;
@@ -6,6 +6,8 @@ class User {
   final bool isPremium;
   final String? languagePreference;
   final DateTime? createdAt;
+  // AÑADIDO: el backend envía este campo y es relevante para la lógica de acceso
+  final bool publicProfile;
 
   const User({
     required this.id,
@@ -14,6 +16,7 @@ class User {
     required this.isPremium,
     this.languagePreference,
     this.createdAt,
+    this.publicProfile = true,
   });
 
   @override
@@ -25,23 +28,22 @@ class User {
         other.email == email &&
         other.isPremium == isPremium &&
         other.languagePreference == languagePreference &&
-        other.createdAt == createdAt;
+        other.createdAt == createdAt &&
+        other.publicProfile == publicProfile;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      username,
-      email,
-      isPremium,
-      languagePreference,
-      createdAt,
-    );
-  }
+  int get hashCode => Object.hash(
+    id,
+    username,
+    email,
+    isPremium,
+    languagePreference,
+    createdAt,
+    publicProfile,
+  );
 
   @override
-  String toString() {
-    return 'User(id: $id, username: $username, email: $email, isPremium: $isPremium, languagePreference: $languagePreference, createdAt: $createdAt)';
-  }
+  String toString() =>
+      'User(id: $id, username: $username, email: $email, isPremium: $isPremium, publicProfile: $publicProfile)';
 }

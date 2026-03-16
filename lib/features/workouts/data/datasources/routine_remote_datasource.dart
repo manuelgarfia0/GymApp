@@ -4,35 +4,14 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/routine_dto.dart';
 
-/// Abstract interface for routine remote data source
 abstract class RoutineRemoteDatasource {
-  /// Retrieves all routines for a specific user from the API
-  /// Returns list of RoutineDto belonging to the user
-  /// Throws exception on failure
   Future<List<RoutineDto>> getUserRoutines(int userId);
-
-  /// Retrieves a specific routine by its ID from the API
-  /// Returns RoutineDto if found, null otherwise
-  /// Throws exception on failure
   Future<RoutineDto?> getRoutineById(int id);
-
-  /// Creates a new routine via the API
-  /// Returns the created RoutineDto with assigned ID
-  /// Throws exception on failure
   Future<RoutineDto> createRoutine(RoutineDto routine);
-
-  /// Updates an existing routine via the API
-  /// Returns the updated RoutineDto
-  /// Throws exception on failure
   Future<RoutineDto> updateRoutine(RoutineDto routine);
-
-  /// Deletes a routine by its ID via the API
-  /// Returns true if deletion was successful
-  /// Throws exception on failure
   Future<bool> deleteRoutine(int id);
 }
 
-/// Implementation of RoutineRemoteDatasource using HTTP API
 class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
   final ApiClient apiClient;
 
@@ -41,37 +20,34 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
   @override
   Future<List<RoutineDto>> getUserRoutines(int userId) async {
     try {
-      final uri = Uri.parse(
-        ApiConstants.routinesEndpoint,
-      ).replace(queryParameters: {'userId': userId.toString()});
+      // CORRECCIÓN: el backend expone GET /api/routines/user/{userId} (path variable)
+      // El frontend anterior usaba query param ?userId= que daba 404
+      final uri = Uri.parse('${ApiConstants.routinesEndpoint}/user/$userId');
 
       print('🔍 Routine API: Calling ${uri.toString()}');
       final response = await apiClient.get(uri);
       print('🔍 Routine API: Response status ${response.statusCode}');
-      print('🔍 Routine API: Response body ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;
-        print('🔍 Routine API: Parsed ${data.length} routines');
         return data
             .map((json) => RoutineDto.fromJson(json as Map<String, dynamic>))
             .toList();
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required');
+      } else if (response.statusCode == 403) {
+        throw Exception('Forbidden');
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
         final errorMessage =
             errorData?['message'] as String? ?? 'Failed to get user routines';
         throw Exception(errorMessage);
       }
-    } on SocketException catch (e) {
-      print('🔍 Routine API: SocketException - $e');
+    } on SocketException {
       throw Exception('No internet connection');
-    } on FormatException catch (e) {
-      print('🔍 Routine API: FormatException - $e');
+    } on FormatException {
       throw Exception('Invalid response format');
     } catch (e) {
-      print('🔍 Routine API: Unexpected error - $e');
       if (e is Exception) rethrow;
       throw Exception('Unexpected error: $e');
     }
@@ -93,9 +69,9 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
         throw Exception('Authentication required');
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Failed to get routine';
-        throw Exception(errorMessage);
+        throw Exception(
+          errorData?['message'] as String? ?? 'Failed to get routine',
+        );
       }
     } on SocketException {
       throw Exception('No internet connection');
@@ -120,16 +96,11 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
         return RoutineDto.fromJson(data);
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required');
-      } else if (response.statusCode == 400) {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Invalid routine data';
-        throw Exception(errorMessage);
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Failed to create routine';
-        throw Exception(errorMessage);
+        throw Exception(
+          errorData?['message'] as String? ?? 'Failed to create routine',
+        );
       }
     } on SocketException {
       throw Exception('No internet connection');
@@ -156,16 +127,11 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
         throw Exception('Routine not found');
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required');
-      } else if (response.statusCode == 400) {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Invalid routine data';
-        throw Exception(errorMessage);
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Failed to update routine';
-        throw Exception(errorMessage);
+        throw Exception(
+          errorData?['message'] as String? ?? 'Failed to update routine',
+        );
       }
     } on SocketException {
       throw Exception('No internet connection');
@@ -192,9 +158,9 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
         throw Exception('Authentication required');
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Failed to delete routine';
-        throw Exception(errorMessage);
+        throw Exception(
+          errorData?['message'] as String? ?? 'Failed to delete routine',
+        );
       }
     } on SocketException {
       throw Exception('No internet connection');

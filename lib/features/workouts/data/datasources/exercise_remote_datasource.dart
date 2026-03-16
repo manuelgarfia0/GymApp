@@ -4,25 +4,12 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/exercise_dto.dart';
 
-/// Abstract interface for exercise remote data source
 abstract class ExerciseRemoteDatasource {
-  /// Retrieves all available exercises from the API
-  /// Returns list of ExerciseDto on success
-  /// Throws exception on failure
   Future<List<ExerciseDto>> getExercises();
-
-  /// Retrieves a specific exercise by its ID from the API
-  /// Returns ExerciseDto if found, null otherwise
-  /// Throws exception on failure
   Future<ExerciseDto?> getExerciseById(int id);
-
-  /// Searches for exercises by name or muscle group
-  /// Returns list of matching ExerciseDto on success
-  /// Throws exception on failure
   Future<List<ExerciseDto>> searchExercises(String query);
 }
 
-/// Implementation of ExerciseRemoteDatasource using HTTP API
 class ExerciseRemoteDatasourceImpl implements ExerciseRemoteDatasource {
   final ApiClient apiClient;
 
@@ -31,21 +18,20 @@ class ExerciseRemoteDatasourceImpl implements ExerciseRemoteDatasource {
   @override
   Future<List<ExerciseDto>> getExercises() async {
     try {
-      final response = await apiClient.get(
-        Uri.parse(ApiConstants.exercisesEndpoint),
-      );
+      // El backend devuelve un objeto Page con paginación
+      // Parámetros por defecto: page=0, size=100 para cargar todos de una vez
+      final uri = Uri.parse(
+        ApiConstants.exercisesEndpoint,
+      ).replace(queryParameters: {'page': '0', 'size': '100'});
+
+      final response = await apiClient.get(uri);
 
       if (response.statusCode == 200) {
         final responseBody = response.body;
-        print('🔍 Exercise API Response: $responseBody');
-
-        final data = jsonDecode(responseBody) as List<dynamic>;
-        print('🔍 Parsed data length: ${data.length}');
-
-        // Log first exercise for debugging
-        if (data.isNotEmpty) {
-          print('🔍 First exercise data: ${data.first}');
-        }
+        // El backend devuelve Page<ExerciseDTO>, no List<ExerciseDTO>
+        // Estructura: { "content": [...], "totalElements": N, ... }
+        final pageData = jsonDecode(responseBody) as Map<String, dynamic>;
+        final data = pageData['content'] as List<dynamic>;
 
         return data
             .map((json) => ExerciseDto.fromJson(json as Map<String, dynamic>))
@@ -101,6 +87,7 @@ class ExerciseRemoteDatasourceImpl implements ExerciseRemoteDatasource {
   @override
   Future<List<ExerciseDto>> searchExercises(String query) async {
     try {
+      // El endpoint de búsqueda devuelve List<ExerciseDTO> directamente (sin paginación)
       final uri = Uri.parse(
         ApiConstants.exercisesEndpoint,
       ).replace(queryParameters: {'search': query});

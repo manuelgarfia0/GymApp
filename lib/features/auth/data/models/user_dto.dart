@@ -1,15 +1,13 @@
 import '../../domain/entities/user.dart';
 
-/// Data Transfer Object for User
-/// Handles JSON serialization/deserialization with the Spring Boot backend
 class UserDto {
   final int id;
   final String username;
   final String email;
-  final bool isPremium; // Cambiado de 'premium' a 'isPremium'
+  final bool isPremium;
   final String? languagePreference;
   final String? createdAt;
-  final bool publicProfile; // Agregado campo faltante
+  final bool publicProfile;
 
   const UserDto({
     required this.id,
@@ -21,7 +19,6 @@ class UserDto {
     this.publicProfile = true,
   });
 
-  /// Creates UserDto from JSON response from Spring Boot API
   factory UserDto.fromJson(Map<String, dynamic> json) {
     return UserDto(
       id: json['id'] as int,
@@ -35,7 +32,6 @@ class UserDto {
     );
   }
 
-  /// Converts UserDto to JSON for API requests
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -48,8 +44,7 @@ class UserDto {
     };
   }
 
-  /// Converts DTO to domain entity
-  /// This ensures clean separation between data and domain layers
+  /// CORRECCIÓN: publicProfile ya se incluye en la entidad de dominio
   User toEntity() {
     return User(
       id: id,
@@ -58,6 +53,7 @@ class UserDto {
       isPremium: isPremium,
       languagePreference: languagePreference,
       createdAt: createdAt != null ? DateTime.parse(createdAt!) : null,
+      publicProfile: publicProfile,
     );
   }
 
@@ -69,26 +65,14 @@ class UserDto {
         other.username == username &&
         other.email == email &&
         other.isPremium == isPremium &&
-        other.languagePreference == languagePreference &&
-        other.createdAt == createdAt &&
         other.publicProfile == publicProfile;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      username,
-      email,
-      isPremium,
-      languagePreference,
-      createdAt,
-      publicProfile,
-    );
-  }
+  int get hashCode =>
+      Object.hash(id, username, email, isPremium, publicProfile);
 
   @override
-  String toString() {
-    return 'UserDto(id: $id, username: $username, email: $email, isPremium: $isPremium, languagePreference: $languagePreference, createdAt: $createdAt, publicProfile: $publicProfile)';
-  }
+  String toString() =>
+      'UserDto(id: $id, username: $username, email: $email, isPremium: $isPremium, publicProfile: $publicProfile)';
 }

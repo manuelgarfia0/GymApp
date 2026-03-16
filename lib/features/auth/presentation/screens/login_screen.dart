@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/network/network_diagnostics.dart';
 import '../../../home/screens/home_screen.dart';
 import '../../domain/use_cases/login_user.dart';
 
@@ -17,53 +16,24 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
-
-  Future<void> _runDiagnostics() async {
-    // Ejecutar diagnósticos de red
-    await NetworkDiagnostics.testConnectivity();
-
-    // Test específico de Spring Boot
-    await NetworkDiagnostics.testSpringBootHealth();
-
-    // Si hay credenciales, probar login
-    if (_usernameController.text.isNotEmpty &&
-        _passwordController.text.isNotEmpty) {
-      await NetworkDiagnostics.testLogin(
-        _usernameController.text,
-        _passwordController.text,
-      );
-    }
-  }
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
-    // 1. Iniciar estado de carga
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      print('🔄 Iniciando proceso de login...');
-
-      // 2. Usar el caso de uso LoginUser en lugar de AuthService
       final user = await widget.loginUseCase.call(
-        _usernameController.text,
+        _usernameController.text.trim(),
         _passwordController.text,
       );
 
-      print('✅ Login exitoso! Usuario: ${user.username}');
-
-      // 3. Navegar a Home después del login exitoso
-      // El caso de uso maneja el almacenamiento del token internamente vía repositorio
       if (mounted) {
-        print('🏠 Navegando a HomeScreen...');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       }
     } on AuthenticationFailure catch (e) {
-      print('❌ Error de autenticación: ${e.message}');
-      // Manejar errores específicos de autenticación con mensajes amigables
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -74,8 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on NetworkFailure catch (e) {
-      print('❌ Error de red: ${e.message}');
-      // Manejar errores relacionados con la red
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -91,8 +59,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } on ValidationFailure catch (e) {
-      print('❌ Error de validación: ${e.message}');
-      // Manejar errores de validación
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -103,25 +69,25 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      print('❌ Error inesperado: $e');
-      // Manejar cualquier otro error inesperado
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('An unexpected error occurred. Please try again.'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
+            duration: Duration(seconds: 4),
           ),
         );
       }
     } finally {
-      // 5. Resetear estado de carga
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -141,22 +107,29 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 32),
               const Text(
-                'Gym Tracker',
+                'Progressive',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 8),
+              const Text(
+                'Track your progress',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 40),
               TextField(
                 controller: _usernameController,
                 style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
                   labelText: 'Username',
                   labelStyle: const TextStyle(color: Colors.grey),
+                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -165,13 +138,26 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 style: const TextStyle(color: Colors.white),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _login(),
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
                   labelText: 'Password',
                   labelStyle: const TextStyle(color: Colors.grey),
+                  prefixIcon: const Icon(Icons.lock, color: Colors.grey),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -201,55 +187,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                     ),
-              const SizedBox(height: 16),
-              // Botón temporal para diagnósticos
-              TextButton(
-                onPressed: _runDiagnostics,
-                child: const Text(
-                  'Run Network Diagnostics',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
-              const SizedBox(height: 8),
-              // Botón para probar login real
-              TextButton(
-                onPressed: () async {
-                  if (_usernameController.text.isNotEmpty &&
-                      _passwordController.text.isNotEmpty) {
-                    await NetworkDiagnostics.testLogin(
-                      _usernameController.text,
-                      _passwordController.text,
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Enter username and password first'),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  }
-                },
-                child: const Text(
-                  'Test Login with Credentials',
-                  style: TextStyle(color: Colors.blueAccent),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '🎉 API Connection Successful! 🎉',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Login endpoint working ✅ JWT tokens ✅',
-                style: TextStyle(color: Colors.green, fontSize: 12),
-                textAlign: TextAlign.center,
-              ),
             ],
           ),
         ),

@@ -1,8 +1,8 @@
-/// Pure Dart entity representing a workout session in the domain layer.
-/// Contains no Flutter dependencies and represents the business concept of a completed workout.
+/// Entidad de dominio que representa una sesión de entrenamiento.
 class Workout {
   final int? id;
   final String name;
+  final String? notes;
   final DateTime startTime;
   final DateTime? endTime;
   final int userId;
@@ -12,6 +12,7 @@ class Workout {
   const Workout({
     this.id,
     required this.name,
+    this.notes,
     required this.startTime,
     this.endTime,
     required this.userId,
@@ -19,10 +20,8 @@ class Workout {
     required this.sets,
   });
 
-  /// Returns true if the workout is currently active (not finished).
   bool get isActive => endTime == null;
 
-  /// Returns the duration of the workout if completed, or current duration if active.
   Duration get duration {
     final end = endTime ?? DateTime.now();
     return end.difference(startTime);
@@ -37,39 +36,19 @@ class Workout {
         other.startTime == startTime &&
         other.endTime == endTime &&
         other.userId == userId &&
-        other.routineId == routineId &&
-        _listEquals(other.sets, sets);
+        other.routineId == routineId;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      startTime,
-      endTime,
-      userId,
-      routineId,
-      sets.length,
-    );
-  }
-
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
+  int get hashCode =>
+      Object.hash(id, name, startTime, endTime, userId, routineId);
 
   @override
-  String toString() {
-    return 'Workout(id: $id, name: $name, startTime: $startTime, sets: ${sets.length})';
-  }
+  String toString() =>
+      'Workout(id: $id, name: $name, startTime: $startTime, sets: ${sets.length})';
 }
 
-/// Pure Dart entity representing a set performed during a workout.
-/// Contains the actual performance data for an exercise set.
+/// Entidad de dominio que representa una serie dentro de un entrenamiento.
 class WorkoutSet {
   final int? id;
   final int exerciseId;
@@ -78,9 +57,12 @@ class WorkoutSet {
   final int setNumber;
   final double weight;
   final int reps;
-  final DateTime timestamp;
+  final DateTime timestamp; // uso local solamente
   final String? notes;
   final bool isModified;
+  // AÑADIDOS: campos que existen en el backend
+  final bool isWarmup;
+  final bool isCompleted;
 
   const WorkoutSet({
     this.id,
@@ -93,6 +75,8 @@ class WorkoutSet {
     required this.timestamp,
     this.notes,
     this.isModified = false,
+    this.isWarmup = false,
+    this.isCompleted = false,
   });
 
   @override
@@ -100,31 +84,17 @@ class WorkoutSet {
     if (identical(this, other)) return true;
     return other is WorkoutSet &&
         other.exerciseId == exerciseId &&
-        other.exerciseName == exerciseName &&
         other.exerciseOrder == exerciseOrder &&
         other.setNumber == setNumber &&
         other.weight == weight &&
-        other.reps == reps &&
-        other.timestamp == timestamp &&
-        other.notes == notes;
+        other.reps == reps;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      exerciseId,
-      exerciseName,
-      exerciseOrder,
-      setNumber,
-      weight,
-      reps,
-      timestamp,
-      notes,
-    );
-  }
+  int get hashCode =>
+      Object.hash(exerciseId, exerciseOrder, setNumber, weight, reps);
 
   @override
-  String toString() {
-    return 'WorkoutSet(exerciseId: $exerciseId, setNumber: $setNumber, weight: $weight, reps: $reps)';
-  }
+  String toString() =>
+      'WorkoutSet(exerciseId: $exerciseId, setNumber: $setNumber, weight: $weight, reps: $reps)';
 }
