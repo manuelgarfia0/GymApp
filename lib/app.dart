@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
@@ -19,7 +20,8 @@ class GymApp extends StatelessWidget {
   }
 }
 
-// Esta pantalla es invisible. Solo sirve para decidir a dónde mandar al usuario.
+/// Pantalla invisible que decide si el usuario va al Home o al Login.
+/// Verifica que el token exista Y no esté expirado antes de navegar al Home.
 class AuthCheckScreen extends StatefulWidget {
   const AuthCheckScreen({super.key});
 
@@ -28,7 +30,6 @@ class AuthCheckScreen extends StatefulWidget {
 }
 
 class _AuthCheckScreenState extends State<AuthCheckScreen> {
-  // Instanciamos nuestro servicio
   final _storageService = SecureStorageService();
 
   @override
@@ -40,18 +41,31 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   Future<void> _checkToken() async {
     final token = await _storageService.readToken();
 
+    // Pequeño delay para que se vea el splash
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
 
-    if (token != null && token.isNotEmpty) {
-      // Tiene token -> Va al Home
+    // CORRECCIÓN: antes solo comprobaba si el token existía, sin verificar si
+    // estaba expirado. Un token expirado enviaba al usuario al HomeScreen
+    // donde todas las llamadas API fallaban con 401.
+    final bool hasValidToken = token != null &&
+        token.isNotEmpty &&
+        !JwtDecoder.isExpired(token);
+
+    if (!hasValidToken && token != null) {
+      // Token existe pero expirado — limpiarlo para no acumularlo
+      await _storageService.deleteToken();
+    }
+
+    if (!mounted) return;
+
+    if (hasValidToken) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } else {
-      // No tiene token -> Va al Login
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -64,7 +78,6 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mientras comprueba el token, mostramos una pantalla de carga
     return Scaffold(
       body: Center(
         child: Column(
