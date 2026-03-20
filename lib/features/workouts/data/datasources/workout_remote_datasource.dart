@@ -10,9 +10,6 @@ abstract class WorkoutRemoteDatasource {
   Future<WorkoutDto> createWorkout(WorkoutDto workout);
   Future<WorkoutDto> updateWorkout(WorkoutDto workout);
   Future<WorkoutDto> endWorkout(int workoutId);
-  // ELIMINADOS:
-  //   saveWorkout  → llamaba a POST /api/workouts/save (endpoint eliminado del backend)
-  //   getActiveWorkout → llamaba a GET /api/workouts/active (endpoint eliminado del backend)
 }
 
 class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
@@ -23,10 +20,9 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
   @override
   Future<List<WorkoutDto>> getUserWorkouts(int userId) async {
     try {
-      // GET /api/workouts?userId={userId}
-      final uri = Uri.parse(
-        ApiConstants.workoutsEndpoint,
-      ).replace(queryParameters: {'userId': userId.toString()});
+      // CORRECCIÓN: el backend usa GET /api/workouts/user/{userId} (path variable)
+      // NO usar query param ?userId= porque el backend espera @PathVariable
+      final uri = Uri.parse('${ApiConstants.workoutsEndpoint}/user/$userId');
 
       final response = await apiClient.get(uri);
 
@@ -37,6 +33,8 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
             .toList();
       } else if (response.statusCode == 401) {
         throw Exception('Authentication required');
+      } else if (response.statusCode == 403) {
+        throw Exception('Forbidden');
       } else {
         final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
         throw Exception(
@@ -154,7 +152,6 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
   Future<WorkoutDto> endWorkout(int workoutId) async {
     try {
       // PATCH /api/workouts/{id}/end — el backend setea endTime = now()
-      // No hace falta enviar body, el backend usa LocalDateTime.now()
       final response = await apiClient.patch(
         Uri.parse('${ApiConstants.workoutsEndpoint}/$workoutId/end'),
         body: jsonEncode({}),

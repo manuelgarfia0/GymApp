@@ -14,13 +14,17 @@ class Validators {
   }
 
   // Validación de contraseña
+  // CORRECCIÓN: mínimo 8 caracteres para coincidir con el backend
+  // (UserRegistrationDTO tiene @Size(min = 8)).
+  // El valor anterior de 6 causaba que formularios Flutter aceptaran
+  // contraseñas que el backend rechazaría con 400 Bad Request.
   static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required';
     }
 
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters';
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
     }
 
     return null;
