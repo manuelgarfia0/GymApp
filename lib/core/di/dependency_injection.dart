@@ -1,33 +1,31 @@
 import '../../features/auth/auth_dependencies.dart';
 import '../../features/profile/profile_dependencies.dart';
 import '../../features/workouts/workout_dependencies.dart';
+import 'core_dependencies.dart';
 
-/// Global dependency injection container
-/// Coordinates all feature-specific dependency factories
-/// Follows clean architecture principles with proper layer separation
+/// Contenedor global de inyección de dependencias.
+/// Coordina todos los factories de features y la infraestructura compartida.
 class DependencyInjection {
   static bool _isInitialized = false;
 
-  /// Initialize all dependencies
-  /// Should be called once at app startup
+  /// Inicializa todas las dependencias.
+  /// Debe llamarse una única vez en el arranque de la app.
   static void initialize() {
     if (_isInitialized) return;
-
-    // Dependencies are lazily initialized by each feature's factory
-    // No explicit initialization needed due to singleton pattern
-
+    // CoreDependencies provee ApiClient y SecureStorageService compartidos.
+    // Los features *Dependencies obtienen sus instancias de CoreDependencies.
     _isInitialized = true;
   }
 
-  /// Reset all dependencies
-  /// Useful for testing and hot reload scenarios
+  /// Resetea todas las dependencias.
+  /// Útil en tests, hot reload y tras un logout.
   static void reset() {
+    CoreDependencies.reset();
     AuthDependencies.reset();
     WorkoutDependencies.reset();
     ProfileDependencies.reset();
     _isInitialized = false;
   }
 
-  /// Check if dependencies are initialized
   static bool get isInitialized => _isInitialized;
 }
