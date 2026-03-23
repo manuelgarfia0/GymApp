@@ -1,15 +1,14 @@
-// lib/features/workouts/presentation/screens/create_routine_screen.dart
+// lib/features/workouts/presentation/screens/edit_routine_screen.dart
 
 import 'package:flutter/material.dart';
-import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/routine.dart';
+import '../../domain/entities/workout.dart';
 import '../../workout_dependencies.dart';
 import 'exercise_selection_screen.dart';
 
 // ── Local state models ────────────────────────────────────────────────────────
-// Idénticos a los de EditRoutineScreen para paridad total de UX.
 
 class _DraftSet {
   final String id;
@@ -19,16 +18,15 @@ class _DraftSet {
 
   _DraftSet({double? weight, int? reps, this.isWarmup = false})
     : id = UniqueKey().toString(),
-      weightCtrl = TextEditingController(
-        text: weight != null && weight > 0
-            ? (weight == weight.toInt()
-                  ? weight.toInt().toString()
-                  : weight.toString())
-            : '',
-      ),
+      weightCtrl = TextEditingController(text: _fmtWeight(weight)),
       repsCtrl = TextEditingController(
         text: reps != null && reps > 0 ? reps.toString() : '',
       );
+
+  static String _fmtWeight(double? w) {
+    if (w == null || w <= 0) return '';
+    return w == w.toInt() ? w.toInt().toString() : w.toString();
+  }
 
   double? get weight => double.tryParse(weightCtrl.text);
   int? get reps => int.tryParse(repsCtrl.text);
@@ -41,16 +39,18 @@ class _DraftSet {
 
 class _DraftExercise {
   final String widgetKey;
+  final int? routineExerciseId;
   final Exercise exercise;
   final List<_DraftSet> sets;
   final TextEditingController restCtrl;
 
   _DraftExercise({
     required this.exercise,
-    List<_DraftSet>? sets,
+    this.routineExerciseId,
+    required List<_DraftSet> sets,
     int restSeconds = 90,
   }) : widgetKey = UniqueKey().toString(),
-       sets = sets ?? [_DraftSet()],
+       sets = sets,
        restCtrl = TextEditingController(text: restSeconds.toString());
 
   int get restSeconds => int.tryParse(restCtrl.text) ?? 90;
@@ -65,19 +65,90 @@ class _DraftExercise {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class CreateRoutineScreen extends StatefulWidget {
-  const CreateRoutineScreen({super.key});
+class EditRoutineScreen extends StatefulWidget {
+  final Routine routine;
+
+  /// Último workout completado con esta rutina.
+  /// Si no es null, sus pesos/reps/isWarmup se usan para pre-poblar cada set.
+  final Workout? lastWorkout;
+
+  const EditRoutineScreen({super.key, required this.routine, this.lastWorkout});
 
   @override
-  State<CreateRoutineScreen> createState() => _CreateRoutineScreenState();
+  State<EditRoutineScreen> createState() => _EditRoutineScreenState();
 }
 
-class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descController = TextEditingController();
-  final List<_DraftExercise> _exercises = [];
+class _EditRoutineScreenState extends State<EditRoutineScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descController;
+  late final List<_DraftExercise> _exercises;
 
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.routine.name);
+    _descController = TextEditingController(
+      text: widget.routine.description ?? '',
+    );
+    _exercises = _buildDraftExercises();
+  }
+
+  /// Construye los borradores de ejercicios.
+  ///
+  /// Fuente de datos por prioridad:
+  /// 1. [lastWorkout] — pesos/reps/isWarmup reales de la última sesión, por set.
+  /// 2. [RoutineExercise.targetWeight] / [RoutineExercise.reps] — valores target.
+  /// 3. Vacío — primer uso sin historial.
+  List<_DraftExercise> _buildDraftExercises() {
+    return widget.routine.exercises.map((re) {
+      // Buscar los WorkoutSets del último entrenamiento para este ejercicio,
+      // ordenados por setNumber para mantener el orden correcto.
+      final lastSets =
+          widget.lastWorkout?.sets
+              .where((s) => s.exerciseId == re.exerciseId)
+              .toList()
+            ?..sort((a, b) => a.setNumber.compareTo(b.setNumber));
+
+      List<_DraftSet> draftSets;
+
+      if (lastSets != null && lastSets.isNotEmpty) {
+        // Pre-poblar desde el último workout real (incluyendo isWarmup)
+        draftSets = lastSets.map((s) {
+          return _DraftSet(
+            weight: s.weight > 0 ? s.weight : null,
+            reps: s.reps > 0 ? s.reps : null,
+            isWarmup: s.isWarmup,
+          );
+        }).toList();
+      } else {
+        // Sin historial: usar targetWeight/reps de la definición de la rutina
+        final count = re.sets > 0 ? re.sets : 1;
+        draftSets = List.generate(
+          count,
+          (_) => _DraftSet(
+            weight: re.targetWeight,
+            reps: re.reps > 0 ? re.reps : null,
+          ),
+        );
+      }
+
+      return _DraftExercise(
+        routineExerciseId: re.id,
+        exercise: Exercise(
+          id: re.exerciseId,
+          name: re.exerciseName ?? '',
+          description: '',
+          primaryMuscle: '',
+          category: '',
+          secondaryMuscles: [],
+        ),
+        sets: draftSets,
+        restSeconds: re.restSeconds,
+      );
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -150,8 +221,6 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                 ),
               ),
               const Divider(color: Color(0xFF2A2A2A)),
-
-              // Toggle warmup
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(6),
@@ -187,8 +256,6 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                   Navigator.pop(context);
                 },
               ),
-
-              // Delete set
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(6),
@@ -211,7 +278,6 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                   _removeSet(exIndex, setIndex);
                 },
               ),
-
               const SizedBox(height: 8),
             ],
           ),
@@ -301,7 +367,9 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
       return;
     }
 
-    setState(() => _exercises.add(_DraftExercise(exercise: selected)));
+    setState(() {
+      _exercises.add(_DraftExercise(exercise: selected, sets: [_DraftSet()]));
+    });
   }
 
   // ── Validate & save ───────────────────────────────────────────────────────
@@ -335,50 +403,43 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final userId = await CoreDependencies.sessionService.getUserId();
-      if (userId == null || userId <= 0) {
-        throw const AuthenticationFailure(
-          'Session expired, please login again',
-        );
-      }
-
       final routineExercises = _exercises.asMap().entries.map((entry) {
         final ex = entry.value;
 
+        // El backend almacena un único peso/reps target por ejercicio.
+        // Usamos el primer set de trabajo (no warmup) como referencia.
+        // Si todos son warmup, usamos el primero de todos.
         final workingSets = ex.sets.where((s) => !s.isWarmup).toList();
-        final allSets = ex.sets;
-
-        final targetReps = workingSets.isNotEmpty
-            ? (workingSets.first.reps ?? 10)
-            : (allSets.first.reps ?? 10);
-        final targetWeight = workingSets.isNotEmpty
-            ? workingSets.first.weight
-            : allSets.first.weight;
+        final refSet = workingSets.isNotEmpty
+            ? workingSets.first
+            : ex.sets.first;
 
         return RoutineExercise(
+          id: ex.routineExerciseId,
           exerciseId: ex.exercise.id,
           exerciseName: ex.exercise.name,
           orderIndex: entry.key + 1,
-          sets: allSets.length,
-          reps: targetReps,
+          sets: ex.sets.length,
+          reps: refSet.reps ?? 10,
           restSeconds: ex.restSeconds,
-          targetWeight: targetWeight,
+          targetWeight: refSet.weight,
         );
       }).toList();
 
-      final newRoutine = Routine(
+      final updated = Routine(
+        id: widget.routine.id,
         name: _nameController.text.trim(),
         description: _descController.text.trim().isNotEmpty
             ? _descController.text.trim()
             : null,
-        userId: userId,
+        userId: widget.routine.userId,
         exercises: routineExercises,
       );
 
-      await WorkoutDependencies.routineRepository.createRoutine(newRoutine);
+      await WorkoutDependencies.routineRepository.updateRoutine(updated);
 
       if (mounted) {
-        _snack('Routine created!', Colors.green);
+        _snack('Routine updated!', Colors.green);
         Navigator.pop(context, true);
       }
     } on AuthenticationFailure catch (e) {
@@ -420,7 +481,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: const Text(
-          'New Routine',
+          'Edit Routine',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.blueAccent,
@@ -452,7 +513,36 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
       ),
       body: Column(
         children: [
-          // ── Name & description ─────────────────────────────────────────
+          // ── Last session banner ───────────────────────────────────────
+          if (widget.lastWorkout != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.blueAccent.withValues(alpha: 0.1),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    color: Colors.blueAccent,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pre-loaded from last session · '
+                      '${_fmtDate(widget.lastWorkout!.startTime)}',
+                      style: const TextStyle(
+                        color: Colors.blueAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // ── Name & description ────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -463,7 +553,6 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                 TextField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
-                  autofocus: true,
                   style: const TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
@@ -496,129 +585,79 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
             ),
           ),
 
-          // ── Exercise list ──────────────────────────────────────────────
+          // ── Exercise list ─────────────────────────────────────────────
           Expanded(
-            child: _exercises.isEmpty
-                ? _EmptyExercises(onAdd: _navigateToAddExercise)
-                : ReorderableListView.builder(
-                    buildDefaultDragHandles: false,
-                    padding: const EdgeInsets.only(bottom: 20),
-                    onReorder: (oldIndex, newIndex) {
-                      setState(() {
-                        if (newIndex > oldIndex) newIndex -= 1;
-                        final item = _exercises.removeAt(oldIndex);
-                        _exercises.insert(newIndex, item);
-                      });
-                    },
-                    footer: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      child: OutlinedButton.icon(
-                        onPressed: _navigateToAddExercise,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Exercise'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.blueAccent,
-                          side: const BorderSide(
-                            color: Colors.blueAccent,
-                            width: 1.5,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+            child: ReorderableListView.builder(
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.only(bottom: 20),
+              onReorder: (oldIndex, newIndex) {
+                setState(() {
+                  if (newIndex > oldIndex) newIndex -= 1;
+                  final item = _exercises.removeAt(oldIndex);
+                  _exercises.insert(newIndex, item);
+                });
+              },
+              footer: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: OutlinedButton.icon(
+                  onPressed: _navigateToAddExercise,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Exercise'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.blueAccent,
+                    side: const BorderSide(
+                      color: Colors.blueAccent,
+                      width: 1.5,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              itemCount: _exercises.length,
+              itemBuilder: (context, exIndex) {
+                final ex = _exercises[exIndex];
+                return _ExerciseCard(
+                  key: Key(ex.widgetKey),
+                  draft: ex,
+                  exIndex: exIndex,
+                  onRemoveExercise: () =>
+                      setState(() => _exercises.removeAt(exIndex)),
+                  onAddSet: () => _addSet(exIndex),
+                  onSetOptions: (setIndex) =>
+                      _showSetOptions(exIndex, setIndex),
+                  onRestTimer: () => _showRestPicker(exIndex),
+                  dragHandle: ReorderableDragStartListener(
+                    index: exIndex,
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: Color(0xFF555555),
+                        size: 22,
                       ),
                     ),
-                    itemCount: _exercises.length,
-                    itemBuilder: (context, exIndex) {
-                      final ex = _exercises[exIndex];
-                      return _ExerciseCard(
-                        key: Key(ex.widgetKey),
-                        draft: ex,
-                        exIndex: exIndex,
-                        onRemoveExercise: () =>
-                            setState(() => _exercises.removeAt(exIndex)),
-                        onAddSet: () => _addSet(exIndex),
-                        onSetOptions: (setIndex) =>
-                            _showSetOptions(exIndex, setIndex),
-                        onRestTimer: () => _showRestPicker(exIndex),
-                        dragHandle: ReorderableDragStartListener(
-                          index: exIndex,
-                          child: const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: Icon(
-                              Icons.drag_handle_rounded,
-                              color: Color(0xFF555555),
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
                   ),
+                );
+              },
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-// ── Empty state ───────────────────────────────────────────────────────────────
-
-class _EmptyExercises extends StatelessWidget {
-  final VoidCallback onAdd;
-
-  const _EmptyExercises({required this.onAdd});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.blueAccent.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.fitness_center_rounded,
-              size: 40,
-              color: Colors.blueAccent,
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No exercises yet',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Add exercises to build your routine',
-            style: TextStyle(color: Color(0xFF888888), fontSize: 13),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add Exercise'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _fmtDate(DateTime d) {
+    final now = DateTime.now();
+    if (d.year == now.year && d.month == now.month && d.day == now.day) {
+      return 'Today';
+    }
+    if (d.year == now.year && d.month == now.month && d.day == now.day - 1) {
+      return 'Yesterday';
+    }
+    return '${d.day}/${d.month}/${d.year}';
   }
 }
 
@@ -663,7 +702,7 @@ class _ExerciseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ───────────────────────────────────────────────────
+            // ── Header ────────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -725,7 +764,7 @@ class _ExerciseCard extends StatelessWidget {
               ],
             ),
 
-            // ── Column headers ────────────────────────────────────────────
+            // ── Column headers ────────────────────────────────────────
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Row(
@@ -765,15 +804,14 @@ class _ExerciseCard extends StatelessWidget {
             const Divider(color: Color(0xFF2A2A2A), height: 1),
             const SizedBox(height: 6),
 
-            // ── Sets ──────────────────────────────────────────────────────
+            // ── Sets ──────────────────────────────────────────────────
             ...List.generate(draft.sets.length, (setIndex) {
               final s = draft.sets[setIndex];
-
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Row(
                   children: [
-                    // Badge – tap for options
+                    // Badge — tap for options
                     GestureDetector(
                       onTap: () => onSetOptions(setIndex),
                       child: Container(
@@ -809,7 +847,6 @@ class _ExerciseCard extends StatelessWidget {
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 8),
 
                     Expanded(
@@ -822,7 +859,6 @@ class _ExerciseCard extends StatelessWidget {
                             : Colors.blueAccent,
                       ),
                     ),
-
                     const SizedBox(width: 8),
 
                     Expanded(
@@ -833,7 +869,6 @@ class _ExerciseCard extends StatelessWidget {
                         accentColor: s.isWarmup ? Colors.orange : null,
                       ),
                     ),
-
                     const SizedBox(width: 8),
 
                     SizedBox(
@@ -852,7 +887,7 @@ class _ExerciseCard extends StatelessWidget {
               );
             }),
 
-            // ── Add set ───────────────────────────────────────────────────
+            // ── Add set ───────────────────────────────────────────────
             const SizedBox(height: 4),
             Center(
               child: TextButton.icon(

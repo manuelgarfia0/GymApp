@@ -1,9 +1,10 @@
-/// Entidad Dart pura que representa una rutina en la capa de dominio.
-/// No contiene dependencias de Flutter y representa el concepto de negocio de una rutina de ejercicios.
+// lib/features/workouts/domain/entities/routine.dart
+
+/// Entidad de dominio para una rutina de entrenamiento.
 class Routine {
   final int? id;
   final String name;
-  final String? description; // Cambiado a nullable para consistencia con DTO
+  final String? description;
   final int userId;
   final List<RoutineExercise> exercises;
   final DateTime? createdAt;
@@ -11,7 +12,7 @@ class Routine {
   const Routine({
     this.id,
     required this.name,
-    this.description, // Cambiado a opcional para manejar valores nulos
+    this.description,
     required this.userId,
     required this.exercises,
     this.createdAt,
@@ -30,16 +31,8 @@ class Routine {
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      description,
-      userId,
-      exercises.length,
-      createdAt,
-    );
-  }
+  int get hashCode =>
+      Object.hash(id, name, description, userId, exercises.length, createdAt);
 
   bool _listEquals<T>(List<T> a, List<T> b) {
     if (a.length != b.length) return false;
@@ -50,13 +43,16 @@ class Routine {
   }
 
   @override
-  String toString() {
-    return 'Routine(id: $id, name: $name, userId: $userId, exercises: ${exercises.length})';
-  }
+  String toString() =>
+      'Routine(id: $id, name: $name, userId: $userId, exercises: ${exercises.length})';
 }
 
-/// Entidad Dart pura que representa un ejercicio dentro de una rutina.
-/// Define los parámetros de cómo debe realizarse un ejercicio en una rutina.
+/// Entidad de dominio para un ejercicio dentro de una rutina.
+///
+/// [targetWeight] almacena el peso objetivo sugerido para este ejercicio.
+/// Se usa para pre-rellenar el entrenamiento cuando no existe historial previo.
+/// El campo se envía al backend en el JSON pero es ignorado (campo extra),
+/// ya que el peso real queda registrado en [WorkoutSet] al completar la sesión.
 class RoutineExercise {
   final int? id;
   final int exerciseId;
@@ -65,6 +61,7 @@ class RoutineExercise {
   final int sets;
   final int reps;
   final int restSeconds;
+  final double? targetWeight;
   final String? notes;
 
   const RoutineExercise({
@@ -75,6 +72,7 @@ class RoutineExercise {
     required this.sets,
     required this.reps,
     required this.restSeconds,
+    this.targetWeight,
     this.notes,
   });
 
@@ -89,25 +87,24 @@ class RoutineExercise {
         other.sets == sets &&
         other.reps == reps &&
         other.restSeconds == restSeconds &&
+        other.targetWeight == targetWeight &&
         other.notes == notes;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      exerciseId,
-      exerciseName,
-      orderIndex,
-      sets,
-      reps,
-      restSeconds,
-      notes,
-    );
-  }
+  int get hashCode => Object.hash(
+    id,
+    exerciseId,
+    exerciseName,
+    orderIndex,
+    sets,
+    reps,
+    restSeconds,
+    targetWeight,
+    notes,
+  );
 
   @override
-  String toString() {
-    return 'RoutineExercise(exerciseId: $exerciseId, sets: $sets, reps: $reps)';
-  }
+  String toString() =>
+      'RoutineExercise(exerciseId: $exerciseId, sets: $sets, reps: $reps, targetWeight: $targetWeight)';
 }

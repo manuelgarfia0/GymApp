@@ -1,19 +1,19 @@
+// lib/features/workouts/domain/use_cases/get_workout_history.dart
+
 import '../entities/workout.dart';
 import '../repositories/workout_repository.dart';
 
 /// Caso de uso para obtener el historial de entrenamientos.
-/// CORRECCIÓN: eliminado el método getActiveWorkout porque el endpoint
-/// GET /api/workouts/active ya no existe en el backend.
 class GetWorkoutHistory {
   final WorkoutRepository _repository;
 
   GetWorkoutHistory(this._repository);
 
+  /// Devuelve todos los workouts del usuario ordenados por fecha descendente.
   Future<List<Workout>> call(int userId) async {
     if (userId <= 0) throw ArgumentError('Valid user ID is required');
 
     final workouts = await _repository.getUserWorkouts(userId);
-    // El backend ya ordena por startTime DESC, pero lo aseguramos aquí
     workouts.sort((a, b) => b.startTime.compareTo(a.startTime));
     return workouts;
   }
@@ -23,8 +23,30 @@ class GetWorkoutHistory {
     return await _repository.getWorkoutById(workoutId);
   }
 
-  /// Finaliza un entrenamiento activo.
-  /// Llama a PATCH /api/workouts/{id}/end — este endpoint SÍ existe en el backend.
+  /// Devuelve el último workout completado que usó [routineId] como base.
+  ///
+  /// Sirve para pre-poblar [ActiveWorkoutScreen] con los pesos y repeticiones
+  /// reales de la sesión anterior, de modo que el usuario no tenga que
+  /// introducirlos de nuevo cada vez que inicia la misma rutina.
+  ///
+  /// Devuelve [null] si el usuario nunca ha entrenado con esa rutina.
+  Future<Workout?> getLastWorkoutForRoutine(int userId, int routineId) async {
+    if (userId <= 0) throw ArgumentError('Valid user ID is required');
+    if (routineId <= 0) throw ArgumentError('Valid routine ID is required');
+
+    final workouts = await call(userId);
+
+    // El listado ya viene ordenado por fecha desc; el primero que coincida
+    // con el routineId es el más reciente.
+    try {
+      return workouts.firstWhere(
+        (w) => w.routineId == routineId && w.endTime != null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Workout> endWorkout(int workoutId) async {
     if (workoutId <= 0) throw ArgumentError('Valid workout ID is required');
     return await _repository.endWorkout(workoutId);

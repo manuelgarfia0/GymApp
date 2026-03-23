@@ -1,13 +1,24 @@
+// lib/features/auth/data/repositories/auth_repository_impl.dart
+
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../datasources/auth_remote_datasource.dart';
 
+/// Implementación del repositorio de autenticación.
+///
+/// Responsabilidades:
+/// - Delegar las operaciones de red al [AuthRemoteDatasource].
+/// - Persistir/eliminar el token JWT en [SecureStorageService].
+/// - Mapear excepciones de infraestructura a [Failure] de dominio.
+///
+/// El userId se extrae del propio JWT cuando es necesario,
+/// eliminando la dependencia de [SharedPreferences] como almacén
+/// secundario y evitando posibles desincronizaciones.
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDatasource remoteDatasource;
   final SecureStorageService storageService;
@@ -20,30 +31,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<String> login(String username, String password) async {
     try {
-      if (username.trim().isEmpty) {
-        throw const ValidationFailure('Username cannot be empty');
-      }
-      if (password.trim().isEmpty) {
-        throw const ValidationFailure('Password cannot be empty');
-      }
+      _validateCredentials(username, password);
 
       final token = await remoteDatasource.login(username, password);
       await storageService.saveToken(token);
-
-      // CORRECCIÓN: extraemos el user_id directamente del JWT con jwt_decoder
-      // en lugar de hacer una segunda llamada GET /api/auth/me, que era redundante
-      // porque login_user.dart ya llama a getCurrentUser() después de login().
-      try {
-        final decodedToken = JwtDecoder.decode(token);
-        final userId = decodedToken['id'];
-        if (userId != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('user_id', (userId as num).toInt());
-        }
-      } catch (e) {
-        // Si falla el decode del token, lo ignoramos — getCurrentUser() lo recuperará
-        print('⚠️ AuthRepository: No se pudo extraer user_id del token: $e');
-      }
 
       return token;
     } on ServerException catch (e) {
@@ -68,37 +59,10 @@ class AuthRepositoryImpl implements AuthRepository {
     String password,
   ) async {
     try {
-      if (username.trim().isEmpty) {
-        throw const ValidationFailure('Username cannot be empty');
-      }
-      if (email.trim().isEmpty) {
-        throw const ValidationFailure('Email cannot be empty');
-      }
-      if (password.trim().isEmpty) {
-        throw const ValidationFailure('Password cannot be empty');
-      }
-      // CORRECCIÓN: el backend exige mínimo 8 caracteres (UserRegistrationDTO @Size(min=8))
-      if (password.length < 8) {
-        throw const ValidationFailure('Password must be at least 8 characters');
-      }
-      if (!email.contains('@') || !email.contains('.')) {
-        throw const ValidationFailure('Please enter a valid email address');
-      }
+      _validateRegistration(username, email, password);
 
       final token = await remoteDatasource.register(username, email, password);
       await storageService.saveToken(token);
-
-      // Igual que en login, extraemos user_id del token sin hacer llamada extra
-      try {
-        final decodedToken = JwtDecoder.decode(token);
-        final userId = decodedToken['id'];
-        if (userId != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('user_id', (userId as num).toInt());
-        }
-      } catch (e) {
-        print('⚠️ AuthRepository: No se pudo extraer user_id del token: $e');
-      }
 
       return token;
     } on ServerException catch (e) {
@@ -118,13 +82,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-    try {
-      await storageService.deleteToken();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_id');
-    } catch (e) {
-      print('⚠️ AuthRepository: Error durante logout: $e');
-    }
+    // El token JWT es la única fuente de sesión — basta con eliminarlo.
+    await storageService.deleteToken();
   }
 
   @override
@@ -137,7 +96,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return userDto.toEntity();
     } on ServerException catch (e) {
       if (e.type == ServerErrorType.authentication) {
-        await _clearSession();
+        await storageService.deleteToken();
         throw AuthenticationFailure(e.message);
       }
       throw _mapServerException(e);
@@ -150,12 +109,12 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (e) {
       final msg = e.toString().toLowerCase();
       if (msg.contains('401') || msg.contains('unauthorized')) {
-        await _clearSession();
+        await storageService.deleteToken();
         throw const AuthenticationFailure(
           'Session expired, please login again',
         );
       }
-      await _clearSession();
+      await storageService.deleteToken();
       return null;
     }
   }
@@ -166,15 +125,14 @@ class AuthRepositoryImpl implements AuthRepository {
       final token = await storageService.readToken();
       if (token == null || token.isEmpty) return false;
 
-      // Comprobamos expiración localmente antes de hacer una llamada de red
       if (JwtDecoder.isExpired(token)) {
-        await _clearSession();
+        await storageService.deleteToken();
         return false;
       }
 
       final user = await getCurrentUser();
       return user != null;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
@@ -183,16 +141,45 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String?> getToken() async {
     try {
       return await storageService.readToken();
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  Future<void> _clearSession() async {
-    await storageService.deleteToken();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_id');
+  // ---------------------------------------------------------------------------
+  // Validación
+  // ---------------------------------------------------------------------------
+
+  void _validateCredentials(String username, String password) {
+    if (username.trim().isEmpty) {
+      throw const ValidationFailure('Username cannot be empty');
+    }
+    if (password.trim().isEmpty) {
+      throw const ValidationFailure('Password cannot be empty');
+    }
   }
+
+  void _validateRegistration(String username, String email, String password) {
+    if (username.trim().isEmpty) {
+      throw const ValidationFailure('Username cannot be empty');
+    }
+    if (email.trim().isEmpty) {
+      throw const ValidationFailure('Email cannot be empty');
+    }
+    if (password.trim().isEmpty) {
+      throw const ValidationFailure('Password cannot be empty');
+    }
+    if (password.length < 8) {
+      throw const ValidationFailure('Password must be at least 8 characters');
+    }
+    if (!email.contains('@') || !email.contains('.')) {
+      throw const ValidationFailure('Please enter a valid email address');
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mapeo de errores
+  // ---------------------------------------------------------------------------
 
   Failure _mapServerException(ServerException e) {
     switch (e.type) {
@@ -200,7 +187,6 @@ class AuthRepositoryImpl implements AuthRepository {
       case ServerErrorType.forbidden:
         return AuthenticationFailure(e.message);
       case ServerErrorType.conflict:
-        // Conflicto = usuario/email ya existe — es un error de validación, no de auth
         return ValidationFailure(e.message);
       case ServerErrorType.validationError:
         return ValidationFailure(e.message);

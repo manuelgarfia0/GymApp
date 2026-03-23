@@ -1,5 +1,7 @@
+// lib/features/profile/screens/profile_screen.dart
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
 import '../../workouts/domain/entities/workout.dart';
 import '../../workouts/domain/use_cases/get_workout_history.dart';
@@ -16,7 +18,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Use cases para operaciones de perfil y workouts
   late final GetCurrentUserProfile _getCurrentUserProfile;
   late final GetWorkoutHistory _getWorkoutHistory;
 
@@ -27,28 +28,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeUseCases();
+    _getCurrentUserProfile = ProfileDependencies.getCurrentUserProfileUseCase;
+    _getWorkoutHistory = WorkoutDependencies.getWorkoutHistoryUseCase;
     _loadDashboardData();
   }
 
-  void _initializeUseCases() {
-    // Inicializar los use cases con sus dependencias
-    _getCurrentUserProfile = ProfileDependencies.getCurrentUserProfileUseCase;
-    _getWorkoutHistory = WorkoutDependencies.getWorkoutHistoryUseCase;
-  }
-
-  // Carga asíncrona de todos los datos necesarios para el dashboard
+  /// Carga el perfil y el historial de entrenamientos.
+  ///
+  /// Obtiene el userId desde [SessionService] a través del JWT,
+  /// sin depender de [SharedPreferences] como fuente secundaria.
   Future<void> _loadDashboardData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final int userId = prefs.getInt('user_id') ?? 0;
+    final userId = await CoreDependencies.sessionService.getUserId();
 
-    if (userId == 0) {
-      setState(() => _isLoading = false);
+    if (userId == null || userId <= 0) {
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      // Usar los use cases del dominio para obtener datos
       final user = await _getCurrentUserProfile();
       final workouts = await _getWorkoutHistory(userId);
 
@@ -60,116 +57,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } on AuthenticationFailure catch (e) {
-      if (mounted) {
-        setState(() {
-          _user = null;
-          _workouts = [];
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
+      _handleError(e.message);
     } on NetworkFailure catch (e) {
-      if (mounted) {
-        setState(() {
-          _user = null;
-          _workouts = [];
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                });
-                _loadDashboardData();
-              },
-            ),
-          ),
-        );
-      }
+      _handleError(e.message, isRetryable: true);
     } on ValidationFailure catch (e) {
-      if (mounted) {
-        setState(() {
-          _user = null;
-          _workouts = [];
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: Colors.amber,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _user = null;
-          _workouts = [];
-          _isLoading = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load profile data. Please try again.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Retry',
-              textColor: Colors.white,
-              onPressed: () {
-                setState(() {
-                  _isLoading = true;
-                });
-                _loadDashboardData();
-              },
-            ),
-          ),
-        );
-      }
+      _handleError(e.message, color: Colors.amber);
+    } catch (_) {
+      _handleError(
+        'Failed to load profile data. Please try again.',
+        isRetryable: true,
+      );
     }
   }
 
-  // Calcula el tiempo total de entrenamiento sumando la duración de cada sesión
+  void _handleError(
+    String message, {
+    bool isRetryable = false,
+    Color color = Colors.red,
+  }) {
+    if (!mounted) return;
+    setState(() {
+      _user = null;
+      _workouts = [];
+      _isLoading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        duration: const Duration(seconds: 4),
+        action: isRetryable
+            ? SnackBarAction(
+                label: 'Retry',
+                textColor: Colors.white,
+                onPressed: () {
+                  setState(() => _isLoading = true);
+                  _loadDashboardData();
+                },
+              )
+            : null,
+      ),
+    );
+  }
+
   String _calculateTotalTime() {
-    Duration totalDuration = Duration.zero;
-
-    for (var workout in _workouts) {
-      if (workout.endTime != null) {
-        try {
-          Duration workoutDuration = workout.endTime!.difference(
-            workout.startTime,
-          );
-          totalDuration += workoutDuration;
-        } catch (e) {
-          // Ignoramos errores de cálculo en fechas inválidas
-        }
-      }
-    }
-
-    int hours = totalDuration.inHours;
-    int minutes = totalDuration.inMinutes.remainder(60);
-
+    final total = _workouts.fold<Duration>(
+      Duration.zero,
+      (sum, w) =>
+          w.endTime != null ? sum + w.endTime!.difference(w.startTime) : sum,
+    );
+    final hours = total.inHours;
+    final minutes = total.inMinutes.remainder(60);
     return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
   }
 
-  // Componente reutilizable para las tarjetas de estadísticas
   Widget _buildStatCard(
     String title,
     String value,
@@ -207,14 +148,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Pantalla de carga mientras se obtienen los datos de la API
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.blueAccent),
       );
     }
 
-    // Manejo de estado en caso de que no se pueda cargar el usuario
     if (_user == null) {
       return const Center(
         child: Text(
@@ -230,15 +169,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 24),
-          // Foto de perfil circular (Avatar)
           const CircleAvatar(
             radius: 50,
             backgroundColor: Colors.blueAccent,
             child: Icon(Icons.person, size: 60, color: Colors.white),
           ),
           const SizedBox(height: 16),
-
-          // Información principal del usuario
           Text(
             _user!.username,
             style: const TextStyle(
@@ -253,8 +189,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
           const SizedBox(height: 16),
-
-          // Etiqueta de suscripción (Premium o Gratuito)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -274,10 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-
           const SizedBox(height: 40),
-
-          // Sección de Estadísticas (Dashboard)
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -290,8 +221,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Grid con las métricas usando el componente reutilizable
           GridView.count(
             crossAxisCount: 2,
             crossAxisSpacing: 16,

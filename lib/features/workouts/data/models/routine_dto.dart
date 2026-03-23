@@ -1,12 +1,12 @@
+// lib/features/workouts/data/models/routine_dto.dart
+
 import '../../domain/entities/routine.dart';
 
-/// Data Transfer Object para Routine
-/// Maneja la serialización/deserialización JSON con el backend Spring Boot
+/// Data Transfer Object para Routine.
 class RoutineDto {
   final int? id;
   final String name;
-  final String?
-  description; // Cambiado a nullable para manejar valores nulos del backend
+  final String? description;
   final int userId;
   final List<RoutineExerciseDto> exercises;
   final String? createdAt;
@@ -14,19 +14,17 @@ class RoutineDto {
   const RoutineDto({
     this.id,
     required this.name,
-    this.description, // Cambiado a opcional para manejar valores nulos
+    this.description,
     required this.userId,
     required this.exercises,
     this.createdAt,
   });
 
-  /// Crea RoutineDto desde respuesta JSON de la API Spring Boot
   factory RoutineDto.fromJson(Map<String, dynamic> json) {
     return RoutineDto(
       id: json['id'] as int?,
       name: json['name'] as String,
-      description:
-          json['description'] as String?, // Maneja valores nulos apropiadamente
+      description: json['description'] as String?,
       userId: json['userId'] as int,
       exercises:
           (json['exercises'] as List<dynamic>?)
@@ -39,26 +37,23 @@ class RoutineDto {
     );
   }
 
-  /// Convierte RoutineDto a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       'name': name,
-      if (description != null)
-        'description': description, // Solo incluye si no es nulo
+      if (description != null && description!.isNotEmpty)
+        'description': description,
       'userId': userId,
       'exercises': exercises.map((e) => e.toJson()).toList(),
       if (createdAt != null) 'createdAt': createdAt,
     };
   }
 
-  /// Convierte DTO a entidad del dominio
-  /// Esto asegura separación limpia entre capas de datos y dominio
   Routine toEntity() {
     return Routine(
       id: id,
       name: name,
-      description: description, // Pasa el valor nulo si existe
+      description: description,
       userId: userId,
       exercises: exercises.map((e) => e.toEntity()).toList(),
       createdAt: createdAt != null ? DateTime.parse(createdAt!) : null,
@@ -66,45 +61,15 @@ class RoutineDto {
   }
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is RoutineDto &&
-        other.id == id &&
-        other.name == name &&
-        other.description == description &&
-        other.userId == userId &&
-        _listEquals(other.exercises, exercises) &&
-        other.createdAt == createdAt;
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      name,
-      description,
-      userId,
-      exercises.length,
-      createdAt,
-    );
-  }
-
-  bool _listEquals<T>(List<T> a, List<T> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  @override
-  String toString() {
-    return 'RoutineDto(id: $id, name: $name, userId: $userId, exercises: ${exercises.length})';
-  }
+  String toString() =>
+      'RoutineDto(id: $id, name: $name, userId: $userId, exercises: ${exercises.length})';
 }
 
-/// Data Transfer Object for RoutineExercise
-/// Handles JSON serialization/deserialization for exercises within routines
+/// Data Transfer Object para un ejercicio dentro de una rutina.
+///
+/// [targetWeight] es un campo extra enviado al backend que éste ignora.
+/// Se usa en Flutter para pre-poblar el peso sugerido al iniciar un workout
+/// cuando no existe historial previo con esa rutina.
 class RoutineExerciseDto {
   final int? id;
   final int exerciseId;
@@ -113,6 +78,7 @@ class RoutineExerciseDto {
   final int sets;
   final int reps;
   final int restSeconds;
+  final double? targetWeight;
   final String? notes;
 
   const RoutineExerciseDto({
@@ -123,10 +89,10 @@ class RoutineExerciseDto {
     required this.sets,
     required this.reps,
     required this.restSeconds,
+    this.targetWeight,
     this.notes,
   });
 
-  /// Creates RoutineExerciseDto from JSON response from Spring Boot API
   factory RoutineExerciseDto.fromJson(Map<String, dynamic> json) {
     return RoutineExerciseDto(
       id: json['id'] as int?,
@@ -136,11 +102,11 @@ class RoutineExerciseDto {
       sets: json['sets'] as int,
       reps: json['reps'] as int,
       restSeconds: json['restSeconds'] as int,
+      targetWeight: (json['targetWeight'] as num?)?.toDouble(),
       notes: json['notes'] as String?,
     );
   }
 
-  /// Converts RoutineExerciseDto to JSON for API requests
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
@@ -150,12 +116,11 @@ class RoutineExerciseDto {
       'sets': sets,
       'reps': reps,
       'restSeconds': restSeconds,
+      if (targetWeight != null) 'targetWeight': targetWeight,
       if (notes != null) 'notes': notes,
     };
   }
 
-  /// Converts DTO to domain entity
-  /// This ensures clean separation between data and domain layers
   RoutineExercise toEntity() {
     return RoutineExercise(
       id: id,
@@ -165,40 +130,12 @@ class RoutineExerciseDto {
       sets: sets,
       reps: reps,
       restSeconds: restSeconds,
+      targetWeight: targetWeight,
       notes: notes,
     );
   }
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is RoutineExerciseDto &&
-        other.id == id &&
-        other.exerciseId == exerciseId &&
-        other.exerciseName == exerciseName &&
-        other.orderIndex == orderIndex &&
-        other.sets == sets &&
-        other.reps == reps &&
-        other.restSeconds == restSeconds &&
-        other.notes == notes;
-  }
-
-  @override
-  int get hashCode {
-    return Object.hash(
-      id,
-      exerciseId,
-      exerciseName,
-      orderIndex,
-      sets,
-      reps,
-      restSeconds,
-      notes,
-    );
-  }
-
-  @override
-  String toString() {
-    return 'RoutineExerciseDto(exerciseId: $exerciseId, sets: $sets, reps: $reps)';
-  }
+  String toString() =>
+      'RoutineExerciseDto(exerciseId: $exerciseId, sets: $sets, reps: $reps, targetWeight: $targetWeight)';
 }

@@ -1,27 +1,37 @@
+// lib/features/profile/data/repositories/profile_repository_impl.dart
+
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/profile_repository.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/session/session_service.dart';
 import '../datasources/profile_remote_datasource.dart';
 import '../models/user_profile_dto.dart';
 
+/// Implementación del repositorio de perfil.
+///
+/// Recibe [SessionService] por constructor injection para obtener
+/// el userId del usuario activo directamente desde el JWT,
+/// eliminando la dependencia de [SharedPreferences].
 class ProfileRepositoryImpl implements ProfileRepository {
   final ProfileRemoteDatasource remoteDatasource;
+  final SessionService sessionService;
 
-  ProfileRepositoryImpl(this.remoteDatasource);
+  ProfileRepositoryImpl({
+    required this.remoteDatasource,
+    required this.sessionService,
+  });
 
   @override
   Future<UserProfile?> getUserProfile(int userId) async {
     try {
-      // Validate input
       if (userId <= 0) {
         throw const ValidationFailure('Valid user ID is required');
       }
 
-      final userProfileDto = await remoteDatasource.getUserProfile(userId);
-      return userProfileDto.toEntity();
+      final dto = await remoteDatasource.getUserProfile(userId);
+      return dto.toEntity();
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
     } on http.ClientException {
@@ -31,29 +41,22 @@ class ProfileRepositoryImpl implements ProfileRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
+      rethrow;
     } catch (e) {
-      // Check if it's an authentication error
-      final errorMessage = e.toString().toLowerCase();
-      if (errorMessage.contains('401') ||
-          errorMessage.contains('unauthorized')) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('401') || msg.contains('unauthorized')) {
         throw const AuthenticationFailure(
           'Session expired, please login again',
         );
-      } else if (errorMessage.contains('403') ||
-          errorMessage.contains('forbidden')) {
+      } else if (msg.contains('403') || msg.contains('forbidden')) {
         throw const AuthenticationFailure(
           'You are not authorized to perform this action',
         );
-      } else if (errorMessage.contains('404')) {
-        // Return null for profile not found (valid case)
+      } else if (msg.contains('404')) {
         return null;
-      } else if (errorMessage.contains('500') ||
-          errorMessage.contains('server')) {
+      } else if (msg.contains('500') || msg.contains('server')) {
         throw const NetworkFailure('Server error, please try again later');
       }
-
-      // Return null for other errors (graceful degradation)
       return null;
     }
   }
@@ -61,16 +64,13 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<UserProfile> updateUserProfile(UserProfile userProfile) async {
     try {
-      // Validate input
       if (userProfile.userId <= 0) {
         throw const ValidationFailure('Valid user ID is required');
       }
 
-      final userProfileDto = UserProfileDto.fromEntity(userProfile);
-      final updatedDto = await remoteDatasource.updateUserProfile(
-        userProfileDto,
-      );
-      return updatedDto.toEntity();
+      final dto = UserProfileDto.fromEntity(userProfile);
+      final updated = await remoteDatasource.updateUserProfile(dto);
+      return updated.toEntity();
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
     } on http.ClientException {
@@ -80,31 +80,24 @@ class ProfileRepositoryImpl implements ProfileRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
+      rethrow;
     } catch (e) {
-      // Check if it's an authentication error
-      final errorMessage = e.toString().toLowerCase();
-      if (errorMessage.contains('401') ||
-          errorMessage.contains('unauthorized')) {
+      final msg = e.toString().toLowerCase();
+      if (msg.contains('401') || msg.contains('unauthorized')) {
         throw const AuthenticationFailure(
           'Session expired, please login again',
         );
-      } else if (errorMessage.contains('403') ||
-          errorMessage.contains('forbidden')) {
+      } else if (msg.contains('403') || msg.contains('forbidden')) {
         throw const AuthenticationFailure(
           'You are not authorized to perform this action',
         );
-      } else if (errorMessage.contains('400') ||
-          errorMessage.contains('bad request')) {
+      } else if (msg.contains('400') || msg.contains('bad request')) {
         throw const ValidationFailure('Invalid profile data provided');
-      } else if (errorMessage.contains('404')) {
+      } else if (msg.contains('404')) {
         throw const ValidationFailure('Profile not found');
-      } else if (errorMessage.contains('500') ||
-          errorMessage.contains('server')) {
+      } else if (msg.contains('500') || msg.contains('server')) {
         throw const NetworkFailure('Server error, please try again later');
       }
-
-      // Default network failure for unknown errors
       throw NetworkFailure('Failed to update profile: ${e.toString()}');
     }
   }
@@ -112,14 +105,13 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<UserProfile?> getCurrentUserProfile() async {
     try {
-      // Get current user ID from shared preferences (consistent with current implementation)
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id');
-      if (userId == null || userId == 0) return null;
+      // El userId se obtiene del JWT a través de [SessionService],
+      // sin necesidad de [SharedPreferences] como almacén auxiliar.
+      final userId = await sessionService.getUserId();
+      if (userId == null || userId <= 0) return null;
 
       return await getUserProfile(userId);
-    } catch (e) {
-      // For getCurrentUserProfile, we return null on any error (graceful degradation)
+    } catch (_) {
       return null;
     }
   }

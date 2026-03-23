@@ -1,5 +1,8 @@
+// lib/features/profile/profile_dependencies.dart
+
 import '../../core/di/core_dependencies.dart';
 import '../../core/network/api_client.dart';
+import '../../core/session/session_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import 'data/datasources/profile_remote_datasource.dart';
 import 'data/repositories/profile_repository_impl.dart';
@@ -9,7 +12,8 @@ import 'domain/use_cases/get_user_profile.dart';
 import 'domain/use_cases/update_user_profile.dart';
 
 /// Factory de dependencias del feature de perfil.
-/// Usa [CoreDependencies] para el ApiClient y SecureStorageService compartidos.
+/// Usa [CoreDependencies] para el [ApiClient], [SecureStorageService]
+/// y [SessionService] compartidos.
 class ProfileDependencies {
   static ProfileRemoteDatasource? _remoteDatasource;
   static ProfileRepository? _repository;
@@ -20,6 +24,7 @@ class ProfileDependencies {
   static ApiClient get apiClient => CoreDependencies.apiClient;
   static SecureStorageService get storageService =>
       CoreDependencies.storageService;
+  static SessionService get sessionService => CoreDependencies.sessionService;
 
   static ProfileRemoteDatasource get remoteDatasource {
     _remoteDatasource ??= ProfileRemoteDatasourceImpl(apiClient);
@@ -27,7 +32,10 @@ class ProfileDependencies {
   }
 
   static ProfileRepository get repository {
-    _repository ??= ProfileRepositoryImpl(remoteDatasource);
+    _repository ??= ProfileRepositoryImpl(
+      remoteDatasource: remoteDatasource,
+      sessionService: sessionService,
+    );
     return _repository!;
   }
 
