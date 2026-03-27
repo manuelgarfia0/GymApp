@@ -436,7 +436,7 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
         exercises: routineExercises,
       );
 
-      await WorkoutDependencies.routineRepository.updateRoutine(updated);
+      await WorkoutDependencies.updateRoutineUseCase(updated);
 
       if (mounted) {
         _snack('Routine updated!', Colors.green);

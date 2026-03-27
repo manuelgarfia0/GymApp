@@ -375,7 +375,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
         exercises: routineExercises,
       );
 
-      await WorkoutDependencies.routineRepository.createRoutine(newRoutine);
+      await WorkoutDependencies.createRoutineUseCase(newRoutine);
 
       if (mounted) {
         _snack('Routine created!', Colors.green);
