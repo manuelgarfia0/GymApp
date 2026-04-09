@@ -192,7 +192,7 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
     if (confirmed != true || routine.id == null) return;
 
     try {
-      await WorkoutDependencies.routineRepository.deleteRoutine(routine.id!);
+      await WorkoutDependencies.deleteRoutineUseCase(routine.id!);
       _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

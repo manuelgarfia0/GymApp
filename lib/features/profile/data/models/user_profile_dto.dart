@@ -1,10 +1,11 @@
 import '../../domain/entities/user_profile.dart';
 
 class UserProfileDto {
-  final int? id; // Cambiado a nullable - no enmascarar con fallback
-  final String? username; // Cambiado a nullable - no enmascarar con fallback
-  final String? email; // Cambiado a nullable - no enmascarar con fallback
-  final bool isPremium; // Estandarizado naming: isPremium consistentemente
+  final int? id;
+  final String? username;
+  final String? email;
+  final bool isPremium;
+  final bool publicProfile; // AÑADIDO
   final String? languagePreference;
   final String? createdAt;
   final String? firstName;
@@ -13,10 +14,11 @@ class UserProfileDto {
   final Map<String, dynamic>? preferences;
 
   UserProfileDto({
-    this.id, // Cambiado a opcional
-    this.username, // Cambiado a opcional
-    this.email, // Cambiado a opcional
-    required this.isPremium, // Estandarizado naming
+    this.id,
+    this.username,
+    this.email,
+    required this.isPremium,
+    this.publicProfile = true, // AÑADIDO
     this.languagePreference,
     this.createdAt,
     this.firstName,
@@ -25,20 +27,13 @@ class UserProfileDto {
     this.preferences,
   });
 
-  /// Constructor factory para crear UserProfileDto desde JSON
   factory UserProfileDto.fromJson(Map<String, dynamic> json) {
     return UserProfileDto(
-      id: json['id'] as int?, // Sin fallback - preserva valores nulos legítimos
-      username:
-          json['username']
-              as String?, // Sin fallback - preserva valores nulos legítimos
-      email:
-          json['email']
-              as String?, // Sin fallback - preserva valores nulos legítimos
-      isPremium:
-          json['isPremium'] as bool? ??
-          json['premium'] as bool? ??
-          false, // Maneja ambos nombres de campo
+      id: json['id'] as int?,
+      username: json['username'] as String?,
+      email: json['email'] as String?,
+      isPremium: json['isPremium'] as bool? ?? json['premium'] as bool? ?? false,
+      publicProfile: json['publicProfile'] as bool? ?? true, // AÑADIDO
       languagePreference: json['languagePreference'] as String?,
       createdAt: json['createdAt'] as String?,
       firstName: json['firstName'] as String?,
@@ -50,13 +45,13 @@ class UserProfileDto {
     );
   }
 
-  /// Convierte a JSON para peticiones API
   Map<String, dynamic> toJson() {
     return {
       if (id != null) 'id': id,
       if (username != null) 'username': username,
       if (email != null) 'email': email,
-      'isPremium': isPremium, // Usa naming estandarizado
+      'isPremium': isPremium,
+      'publicProfile': publicProfile, // AÑADIDO
       if (languagePreference != null) 'languagePreference': languagePreference,
       if (createdAt != null) 'createdAt': createdAt,
       if (firstName != null) 'firstName': firstName,
@@ -66,15 +61,13 @@ class UserProfileDto {
     };
   }
 
-  /// Convierte DTO a entidad del dominio
   UserProfile toEntity() {
     return UserProfile(
-      userId:
-          id ??
-          0, // Fallback solo en conversión a entidad, no en deserialización
-      username: username ?? '', // Fallback solo en conversión a entidad
-      email: email ?? '', // Fallback solo en conversión a entidad
+      userId: id ?? 0,
+      username: username ?? '',
+      email: email ?? '',
       isPremium: isPremium,
+      publicProfile: publicProfile, // AÑADIDO
       languagePreference: languagePreference,
       createdAt: createdAt != null ? DateTime.tryParse(createdAt!) : null,
       firstName: firstName,
@@ -84,13 +77,13 @@ class UserProfileDto {
     );
   }
 
-  /// Crea DTO desde entidad del dominio
   factory UserProfileDto.fromEntity(UserProfile entity) {
     return UserProfileDto(
       id: entity.userId,
       username: entity.username,
       email: entity.email,
       isPremium: entity.isPremium,
+      publicProfile: entity.publicProfile, // AÑADIDO
       languagePreference: entity.languagePreference,
       createdAt: entity.createdAt?.toIso8601String(),
       firstName: entity.firstName,

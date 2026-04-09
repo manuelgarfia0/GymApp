@@ -3,6 +3,7 @@ class UserProfile {
   final String username;
   final String email;
   final bool isPremium;
+  final bool publicProfile; // AÑADIDO
   final String? languagePreference;
   final DateTime? createdAt;
   final String? firstName;
@@ -15,6 +16,7 @@ class UserProfile {
     required this.username,
     required this.email,
     required this.isPremium,
+    this.publicProfile = true, // AÑADIDO
     this.languagePreference,
     this.createdAt,
     this.firstName,
@@ -28,6 +30,7 @@ class UserProfile {
     String? username,
     String? email,
     bool? isPremium,
+    bool? publicProfile, // AÑADIDO
     String? languagePreference,
     DateTime? createdAt,
     String? firstName,
@@ -40,6 +43,7 @@ class UserProfile {
       username: username ?? this.username,
       email: email ?? this.email,
       isPremium: isPremium ?? this.isPremium,
+      publicProfile: publicProfile ?? this.publicProfile, // AÑADIDO
       languagePreference: languagePreference ?? this.languagePreference,
       createdAt: createdAt ?? this.createdAt,
       firstName: firstName ?? this.firstName,
@@ -52,12 +56,12 @@ class UserProfile {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
     return other is UserProfile &&
         other.userId == userId &&
         other.username == username &&
         other.email == email &&
         other.isPremium == isPremium &&
+        other.publicProfile == publicProfile && // AÑADIDO
         other.languagePreference == languagePreference &&
         other.createdAt == createdAt &&
         other.firstName == firstName &&
@@ -71,6 +75,7 @@ class UserProfile {
         username.hashCode ^
         email.hashCode ^
         isPremium.hashCode ^
+        publicProfile.hashCode ^ // AÑADIDO
         languagePreference.hashCode ^
         createdAt.hashCode ^
         firstName.hashCode ^
@@ -80,6 +85,7 @@ class UserProfile {
 
   @override
   String toString() {
-    return 'UserProfile(userId: $userId, username: $username, email: $email, isPremium: $isPremium)';
+    return 'UserProfile(userId: $userId, username: $username, email: $email, '
+        'isPremium: $isPremium, publicProfile: $publicProfile)';
   }
 }
