@@ -1,8 +1,5 @@
-// lib/features/workouts/data/models/routine_dto.dart
-
 import '../../domain/entities/routine.dart';
 
-/// Data Transfer Object para Routine.
 class RoutineDto {
   final int? id;
   final String name;
@@ -65,11 +62,10 @@ class RoutineDto {
       'RoutineDto(id: $id, name: $name, userId: $userId, exercises: ${exercises.length})';
 }
 
-/// Data Transfer Object para un ejercicio dentro de una rutina.
+/// DTO para un ejercicio dentro de una rutina.
 ///
 /// [targetWeight] es un campo extra enviado al backend que éste ignora.
-/// Se usa en Flutter para pre-poblar el peso sugerido al iniciar un workout
-/// cuando no existe historial previo con esa rutina.
+/// Se usa en Flutter para pre-poblar el peso sugerido al iniciar un workout.
 class RoutineExerciseDto {
   final int? id;
   final int exerciseId;
@@ -88,7 +84,7 @@ class RoutineExerciseDto {
     required this.orderIndex,
     required this.sets,
     required this.reps,
-    required this.restSeconds,
+    this.restSeconds = 90,
     this.targetWeight,
     this.notes,
   });
@@ -98,10 +94,10 @@ class RoutineExerciseDto {
       id: json['id'] as int?,
       exerciseId: json['exerciseId'] as int,
       exerciseName: json['exerciseName'] as String?,
-      orderIndex: json['orderIndex'] as int,
-      sets: json['sets'] as int,
-      reps: json['reps'] as int,
-      restSeconds: json['restSeconds'] as int,
+      orderIndex: json['orderIndex'] as int? ?? 1,
+      sets: json['sets'] as int? ?? 1,
+      reps: json['reps'] as int? ?? 10,
+      restSeconds: json['restSeconds'] as int? ?? 90,
       targetWeight: (json['targetWeight'] as num?)?.toDouble(),
       notes: json['notes'] as String?,
     );
@@ -137,5 +133,5 @@ class RoutineExerciseDto {
 
   @override
   String toString() =>
-      'RoutineExerciseDto(exerciseId: $exerciseId, sets: $sets, reps: $reps, targetWeight: $targetWeight)';
+      'RoutineExerciseDto(exerciseId: $exerciseId, sets: $sets, reps: $reps, restSeconds: $restSeconds)';
 }

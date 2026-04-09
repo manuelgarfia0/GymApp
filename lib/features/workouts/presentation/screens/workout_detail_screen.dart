@@ -1,5 +1,3 @@
-// lib/features/workouts/presentation/screens/workout_detail_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/workout.dart';
@@ -9,9 +7,6 @@ class WorkoutDetailScreen extends StatelessWidget {
 
   const WorkoutDetailScreen({super.key, required this.workout});
 
-  // ── Data helpers ──────────────────────────────────────────────────────────
-
-  /// Agrupa las series por ejercicio preservando el orden de aparición.
   List<Map<String, dynamic>> _groupedExercises() {
     final grouped = <int, Map<String, dynamic>>{};
     for (final set in workout.sets) {
@@ -30,25 +25,28 @@ class WorkoutDetailScreen extends StatelessWidget {
     return grouped.values.toList();
   }
 
+  // Cambio: antes mostraba "HH:MM:SS" siempre. Ahora muestra "h:mm" cuando
+  // hay horas (p.ej. "1:23") o "mm min" si es menos de una hora (p.ej. "45 min").
+  // Coherente con el formato del historial en HomeScreen.
   String _duration() {
-    if (workout.endTime == null) return '--:--:--';
+    if (workout.endTime == null) return '--';
     final d = workout.duration;
-    return '${d.inHours.toString().padLeft(2, '0')}:'
-        '${d.inMinutes.remainder(60).toString().padLeft(2, '0')}:'
-        '${d.inSeconds.remainder(60).toString().padLeft(2, '0')}';
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}';
+    return '${d.inMinutes} min';
   }
 
   double _totalVolume() => workout.sets
-      .where((s) => !s.isWarmup) // warmup sets excluded from volume
+      .where((s) => !s.isWarmup)
       .fold(0, (sum, s) => sum + s.weight * s.reps);
 
+  // Cambio: antes abreviaba con "k" a partir de 1000 kg.
+  // Ahora muestra siempre el número completo ("1234 kg").
   String _volumeLabel() {
     final v = _totalVolume();
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k kg';
     return '${v.toStringAsFixed(0)} kg';
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +65,6 @@ class WorkoutDetailScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // ── Summary header ───────────────────────────────────────────
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
@@ -98,7 +95,6 @@ class WorkoutDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Stats row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -125,7 +121,6 @@ class WorkoutDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // ── Exercise cards ───────────────────────────────────────────
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
@@ -135,7 +130,6 @@ class WorkoutDetailScreen extends StatelessWidget {
                 final name = ex['name'] as String;
                 final notes = ex['notes'] as String;
                 final sets = ex['sets'] as List<WorkoutSet>;
-
                 return _ExerciseCard(name: name, notes: notes, sets: sets);
               },
             ),
@@ -145,8 +139,6 @@ class WorkoutDetailScreen extends StatelessWidget {
     );
   }
 }
-
-// ── Exercise detail card ──────────────────────────────────────────────────────
 
 class _ExerciseCard extends StatelessWidget {
   final String name;
@@ -161,7 +153,6 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Count non-warmup sets for numbering
     int workingSetNumber = 0;
 
     return Container(
@@ -175,7 +166,6 @@ class _ExerciseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Exercise name
             Text(
               name,
               style: const TextStyle(
@@ -185,7 +175,6 @@ class _ExerciseCard extends StatelessWidget {
               ),
             ),
 
-            // Notes
             if (notes.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
@@ -200,7 +189,6 @@ class _ExerciseCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Column headers
             const Row(
               children: [
                 SizedBox(width: 40),
@@ -232,7 +220,6 @@ class _ExerciseCard extends StatelessWidget {
             ),
             const Divider(color: Color(0xFF2A2A2A)),
 
-            // Set rows
             ...sets.map((s) {
               final isWarmup = s.isWarmup;
               if (!isWarmup) workingSetNumber++;
@@ -245,7 +232,6 @@ class _ExerciseCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 child: Row(
                   children: [
-                    // Set badge: warmup = fire icon, working = number
                     Container(
                       width: 32,
                       height: 28,
@@ -280,7 +266,6 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
 
-                    // Weight
                     Expanded(
                       child: Text(
                         weightStr,
@@ -295,7 +280,6 @@ class _ExerciseCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Reps
                     Expanded(
                       child: Text(
                         '${s.reps}',
@@ -314,7 +298,6 @@ class _ExerciseCard extends StatelessWidget {
               );
             }),
 
-            // Warmup legend (only shown if workout has warmup sets)
             if (sets.any((s) => s.isWarmup)) ...[
               const SizedBox(height: 8),
               Row(
@@ -341,8 +324,6 @@ class _ExerciseCard extends StatelessWidget {
     );
   }
 }
-
-// ── Summary chip ──────────────────────────────────────────────────────────────
 
 class _SummaryChip extends StatelessWidget {
   final IconData icon;

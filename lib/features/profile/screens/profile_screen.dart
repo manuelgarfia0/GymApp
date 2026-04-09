@@ -3,11 +3,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
-import '../../workouts/domain/entities/workout.dart';
-import '../../workouts/domain/use_cases/get_workout_history.dart';
-import '../../workouts/workout_dependencies.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/use_cases/get_current_user_profile.dart';
+import '../domain/use_cases/get_user_stats.dart';
 import '../profile_dependencies.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,131 +17,67 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late final GetCurrentUserProfile _getCurrentUserProfile;
-  late final GetWorkoutHistory _getWorkoutHistory;
+  late final UserStatsRepository _statsRepository;
 
   UserProfile? _user;
-  List<Workout> _workouts = [];
+  UserStats _stats = UserStats.empty;
   bool _isLoading = true;
+  // Cambio: antes el error sólo se mostraba en un SnackBar (que desaparece),
+  // dejando el body congelado con "Could not load user profile." sin forma de
+  // reintentar. Ahora _errorMessage se usa también para mostrar un retry en el body.
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    // Cambio: ya no se importa WorkoutDependencies aquí.
+    // Las estadísticas se obtienen a través de ProfileDependencies.statsRepository,
+    // que internamente usa WorkoutRepository sin exponer la dependencia al feature.
     _getCurrentUserProfile = ProfileDependencies.getCurrentUserProfileUseCase;
-    _getWorkoutHistory = WorkoutDependencies.getWorkoutHistoryUseCase;
-    _loadDashboardData();
+    _statsRepository = ProfileDependencies.statsRepository;
+    _load();
   }
 
-  /// Carga el perfil y el historial de entrenamientos.
-  ///
-  /// Obtiene el userId desde [SessionService] a través del JWT,
-  /// sin depender de [SharedPreferences] como fuente secundaria.
-  Future<void> _loadDashboardData() async {
-    final userId = await CoreDependencies.sessionService.getUserId();
+  Future<void> _load() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
+    final userId = await CoreDependencies.sessionService.getUserId();
     if (userId == null || userId <= 0) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      final user = await _getCurrentUserProfile();
-      final workouts = await _getWorkoutHistory(userId);
+      final results = await Future.wait([
+        _getCurrentUserProfile(),
+        _statsRepository.getStats(userId),
+      ]);
 
       if (mounted) {
         setState(() {
-          _user = user;
-          _workouts = workouts;
+          _user = results[0] as UserProfile?;
+          _stats = results[1] as UserStats;
           _isLoading = false;
         });
       }
     } on AuthenticationFailure catch (e) {
-      _handleError(e.message);
+      _setError(e.message);
     } on NetworkFailure catch (e) {
-      _handleError(e.message, isRetryable: true);
-    } on ValidationFailure catch (e) {
-      _handleError(e.message, color: Colors.amber);
+      _setError(e.message);
     } catch (_) {
-      _handleError(
-        'Failed to load profile data. Please try again.',
-        isRetryable: true,
-      );
+      _setError('Failed to load profile. Please try again.');
     }
   }
 
-  void _handleError(
-    String message, {
-    bool isRetryable = false,
-    Color color = Colors.red,
-  }) {
+  void _setError(String message) {
     if (!mounted) return;
     setState(() {
-      _user = null;
-      _workouts = [];
       _isLoading = false;
+      _errorMessage = message;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: const Duration(seconds: 4),
-        action: isRetryable
-            ? SnackBarAction(
-                label: 'Retry',
-                textColor: Colors.white,
-                onPressed: () {
-                  setState(() => _isLoading = true);
-                  _loadDashboardData();
-                },
-              )
-            : null,
-      ),
-    );
-  }
-
-  String _calculateTotalTime() {
-    final total = _workouts.fold<Duration>(
-      Duration.zero,
-      (sum, w) =>
-          w.endTime != null ? sum + w.endTime!.difference(w.startTime) : sum,
-    );
-    final hours = total.inHours;
-    final minutes = total.inMinutes.remainder(60);
-    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Card(
-      color: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -154,17 +88,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    if (_user == null) {
-      return const Center(
-        child: Text(
-          'Could not load user profile.',
-          style: TextStyle(color: Colors.grey),
+    // Cambio: el error ahora se muestra inline con un botón Retry visible,
+    // en lugar de sólo en un SnackBar que desaparece.
+    if (_errorMessage != null || _user == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.wifi_off_rounded,
+                size: 48,
+                color: Colors.blueAccent,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage ?? 'Could not load profile.',
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -189,25 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: const TextStyle(fontSize: 16, color: Colors.grey),
           ),
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: _user!.isPremium
-                  ? Colors.amber.withValues(alpha: 0.2)
-                  : Colors.grey.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: _user!.isPremium ? Colors.amber : Colors.grey,
-              ),
-            ),
-            child: Text(
-              _user!.isPremium ? 'PRO Member' : 'Free Plan',
-              style: TextStyle(
-                color: _user!.isPremium ? Colors.amber : Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          _PremiumBadge(isPremium: _user!.isPremium),
           const SizedBox(height: 40),
           const Align(
             alignment: Alignment.centerLeft,
@@ -228,21 +171,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _buildStatCard(
-                'Total Workouts',
-                _workouts.length.toString(),
-                Icons.fitness_center,
-                Colors.blueAccent,
+              _StatCard(
+                title: 'Total Workouts',
+                value: _stats.totalWorkouts.toString(),
+                icon: Icons.fitness_center,
+                color: Colors.blueAccent,
               ),
-              _buildStatCard(
-                'Time Trained',
-                _calculateTotalTime(),
-                Icons.timer,
-                Colors.greenAccent,
+              _StatCard(
+                title: 'Time Trained',
+                value: _stats.totalTime,
+                icon: Icons.timer,
+                color: Colors.greenAccent,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PremiumBadge extends StatelessWidget {
+  final bool isPremium;
+  const _PremiumBadge({required this.isPremium});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: isPremium
+            ? Colors.amber.withValues(alpha: 0.2)
+            : Colors.grey.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isPremium ? Colors.amber : Colors.grey),
+      ),
+      child: Text(
+        isPremium ? 'PRO Member' : 'Free Plan',
+        style: TextStyle(
+          color: isPremium ? Colors.amber : Colors.grey,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFF1E1E1E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 32),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }

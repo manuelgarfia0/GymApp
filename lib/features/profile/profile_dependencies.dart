@@ -1,22 +1,22 @@
-// lib/features/profile/profile_dependencies.dart
-
 import '../../core/di/core_dependencies.dart';
 import '../../core/network/api_client.dart';
 import '../../core/session/session_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../workouts/data/repositories/workout_repository_impl.dart';
+import '../workouts/data/datasources/workout_remote_datasource.dart';
 import 'data/datasources/profile_remote_datasource.dart';
 import 'data/repositories/profile_repository_impl.dart';
+import 'data/repositories/user_stats_repository_impl.dart';
 import 'domain/repositories/profile_repository.dart';
 import 'domain/use_cases/get_current_user_profile.dart';
 import 'domain/use_cases/get_user_profile.dart';
+import 'domain/use_cases/get_user_stats.dart';
 import 'domain/use_cases/update_user_profile.dart';
 
-/// Factory de dependencias del feature de perfil.
-/// Usa [CoreDependencies] para el [ApiClient], [SecureStorageService]
-/// y [SessionService] compartidos.
 class ProfileDependencies {
   static ProfileRemoteDatasource? _remoteDatasource;
   static ProfileRepository? _repository;
+  static UserStatsRepository? _statsRepository;
   static GetCurrentUserProfile? _getCurrentUserProfileUseCase;
   static GetUserProfile? _getUserProfileUseCase;
   static UpdateUserProfile? _updateUserProfileUseCase;
@@ -39,6 +39,15 @@ class ProfileDependencies {
     return _repository!;
   }
 
+  static UserStatsRepository get statsRepository {
+    _statsRepository ??= UserStatsRepositoryImpl(
+      WorkoutRepositoryImpl(
+        remoteDatasource: WorkoutRemoteDatasourceImpl(apiClient),
+      ),
+    );
+    return _statsRepository!;
+  }
+
   static GetCurrentUserProfile get getCurrentUserProfileUseCase {
     _getCurrentUserProfileUseCase ??= GetCurrentUserProfile(repository);
     return _getCurrentUserProfileUseCase!;
@@ -57,6 +66,7 @@ class ProfileDependencies {
   static void reset() {
     _remoteDatasource = null;
     _repository = null;
+    _statsRepository = null;
     _getCurrentUserProfileUseCase = null;
     _getUserProfileUseCase = null;
     _updateUserProfileUseCase = null;

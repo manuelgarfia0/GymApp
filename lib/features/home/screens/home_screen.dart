@@ -1,5 +1,3 @@
-// lib/features/home/screens/home_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../auth/presentation/screens/login_screen.dart';
@@ -69,7 +67,6 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await AuthDependencies.repository.logout();
     } catch (_) {
-      // Navegar al login incluso si falla
     } finally {
       if (mounted) {
         Navigator.pushReplacement(
@@ -226,25 +223,23 @@ class _WorkoutCard extends StatelessWidget {
 
   const _WorkoutCard({required this.workout, required this.onTap});
 
-  /// Volumen total: suma de (peso × reps) de todas las series
   double get _totalVolume =>
       workout.sets.fold(0, (sum, s) => sum + (s.weight * s.reps));
 
-  /// Ejercicios distintos en el workout
   int get _exerciseCount =>
       workout.sets.map((s) => s.exerciseId).toSet().length;
 
-  /// Duración formateada
+  // Cambio: antes mostraba "1h 23m". Ahora muestra "1:23" (h:mm) cuando
+  // hay horas, o "45 min" cuando es menos de una hora. Sin abreviaturas.
   String get _duration {
     if (workout.endTime == null) return 'In progress';
     final d = workout.endTime!.difference(workout.startTime);
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    return '${m}m';
+    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}';
+    return '${d.inMinutes} min';
   }
 
-  /// Fecha relativa
   String get _date {
     final now = DateTime.now();
     final d = workout.startTime;
@@ -257,10 +252,11 @@ class _WorkoutCard extends StatelessWidget {
     return DateFormat('MMM d, yyyy · HH:mm').format(d);
   }
 
-  /// Volumen con unidad
+  // Cambio: antes abreviaba con "k" a partir de 1000 kg ("1.2k kg").
+  // Ahora muestra siempre el número completo ("1234 kg") para que el
+  // usuario vea el volumen real sin ambigüedad.
   String get _volumeLabel {
     final v = _totalVolume;
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}k kg';
     return '${v.toStringAsFixed(0)} kg';
   }
 
@@ -278,7 +274,6 @@ class _WorkoutCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ───────────────────────────────────────────────────
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -316,7 +311,6 @@ class _WorkoutCard extends StatelessWidget {
               const Divider(color: Color(0xFF2A2A2A), height: 1),
               const SizedBox(height: 14),
 
-              // ── Stats ─────────────────────────────────────────────────────
               Row(
                 children: [
                   _StatItem(
@@ -345,7 +339,6 @@ class _WorkoutCard extends StatelessWidget {
                 ],
               ),
 
-              // ── Exercise pills ────────────────────────────────────────────
               if (workout.sets.isNotEmpty) ...[
                 const SizedBox(height: 14),
                 _ExercisePills(workout: workout),
@@ -416,7 +409,6 @@ class _ExercisePills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Deduplica ejercicios preservando el orden de aparición
     final seen = <int>{};
     final names = workout.sets
         .where((s) => seen.add(s.exerciseId))
