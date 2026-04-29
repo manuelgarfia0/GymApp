@@ -229,15 +229,14 @@ class _WorkoutCard extends StatelessWidget {
   int get _exerciseCount =>
       workout.sets.map((s) => s.exerciseId).toSet().length;
 
-  // Cambio: antes mostraba "1h 23m". Ahora muestra "1:23" (h:mm) cuando
-  // hay horas, o "45 min" cuando es menos de una hora. Sin abreviaturas.
+  // Cambio: Ahora muestra HH:MM:SS
   String get _duration {
     if (workout.endTime == null) return 'In progress';
     final d = workout.endTime!.difference(workout.startTime);
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}';
-    return '${d.inMinutes} min';
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
   }
 
   String get _date {

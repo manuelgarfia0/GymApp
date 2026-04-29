@@ -4,8 +4,17 @@ import '../../domain/entities/workout.dart';
 
 class WorkoutDetailScreen extends StatelessWidget {
   final Workout workout;
+  final bool isPreview;
+  final VoidCallback? onConfirm;
+  final VoidCallback? onCancel;
 
-  const WorkoutDetailScreen({super.key, required this.workout});
+  const WorkoutDetailScreen({
+    super.key, 
+    required this.workout,
+    this.isPreview = false,
+    this.onConfirm,
+    this.onCancel,
+  });
 
   List<Map<String, dynamic>> _groupedExercises() {
     final grouped = <int, Map<String, dynamic>>{};
@@ -25,16 +34,14 @@ class WorkoutDetailScreen extends StatelessWidget {
     return grouped.values.toList();
   }
 
-  // Cambio: antes mostraba "HH:MM:SS" siempre. Ahora muestra "h:mm" cuando
-  // hay horas (p.ej. "1:23") o "mm min" si es menos de una hora (p.ej. "45 min").
-  // Coherente con el formato del historial en HomeScreen.
+  // Cambio: Mostrar en formato HH:MM:SS
   String _duration() {
     if (workout.endTime == null) return '--';
     final d = workout.duration;
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '$h:${m.toString().padLeft(2, '0')}';
-    return '${d.inMinutes} min';
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
   }
 
   double _totalVolume() => workout.sets
@@ -56,12 +63,18 @@ class WorkoutDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text(
-          'Workout Summary',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          isPreview ? 'Workout Preview' : 'Workout Summary',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF1E1E1E),
         elevation: 0,
+        leading: isPreview 
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context, false),
+              )
+            : null,
       ),
       body: Column(
         children: [
@@ -134,6 +147,56 @@ class WorkoutDetailScreen extends StatelessWidget {
               },
             ),
           ),
+
+          if (isPreview)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFF1E1E1E),
+                border: Border(
+                  top: BorderSide(color: Color(0xFF2A2A2A)),
+                ),
+              ),
+              child: SafeArea(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onCancel ?? () => Navigator.pop(context, false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Back',
+                            style: TextStyle(color: Colors.grey, fontSize: 16)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: onConfirm ?? () => Navigator.pop(context, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Finish Workout',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

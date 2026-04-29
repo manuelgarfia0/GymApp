@@ -103,12 +103,12 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.fitness_center,
-                size: 100,
-                color: Colors.blueAccent,
+              Image.asset(
+                'assets/images/IconoProgressive.png',
+                width: 140,
+                height: 140,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               const Text(
                 'Progressive',
                 style: TextStyle(

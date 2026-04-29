@@ -79,11 +79,16 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF121212),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.fitness_center, size: 80, color: AppTheme.primaryColor),
+            Image.asset(
+              'assets/images/IconoProgressive.png',
+              width: 120,
+              height: 120,
+            ),
             const SizedBox(height: 20),
             CircularProgressIndicator(color: AppTheme.primaryColor),
           ],

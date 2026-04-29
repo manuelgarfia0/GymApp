@@ -10,6 +10,7 @@ import '../../domain/entities/routine.dart';
 import '../../domain/use_cases/save_workout.dart';
 import '../../workout_dependencies.dart';
 import 'exercise_selection_screen.dart';
+import 'workout_detail_screen.dart';
 
 // ── Local state models ────────────────────────────────────────────────────────
 
@@ -415,19 +416,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         false;
   }
 
-  Future<bool> _askToFinishWorkout() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (_) => const _ConfirmDialog(
-            title: 'Finish Workout?',
-            subtitle: 'Ready to save and complete this session?',
-            confirmLabel: "Let's go",
-            confirmColor: Colors.blueAccent,
-          ),
-        ) ??
-        false;
-  }
-
   Future<void> _showRestTimerPicker(int exerciseIndex) async {
     int selMin = _activeExercises[exerciseIndex].restSeconds ~/ 60;
     int selSec = _activeExercises[exerciseIndex].restSeconds % 60;
@@ -599,7 +587,28 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       exerciseOrder++;
     }
 
-    final confirmed = await _askToFinishWorkout();
+    final tempWorkout = Workout(
+      id: 0,
+      userId: 0, // Mock
+      routineId: widget.baseRoutine?.id,
+      name: _workoutNameController.text.trim().isEmpty
+          ? "Today's Workout"
+          : _workoutNameController.text.trim(),
+      startTime: DateTime.now().subtract(Duration(seconds: _workoutSecondsElapsed)),
+      endTime: DateTime.now(),
+      sets: setsToSend,
+    );
+
+    final confirmed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutDetailScreen(
+          workout: tempWorkout,
+          isPreview: true,
+        ),
+      ),
+    ) ?? false;
+
     if (!confirmed) return;
 
     setState(() => _isSaving = true);

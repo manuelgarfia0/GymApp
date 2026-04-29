@@ -16,16 +16,12 @@ class DateHelpers {
     return DateFormat('h:mm a').format(dateTime);
   }
 
-  // Formatear duración de entrenamiento (ej., "1h 23m")
+  // Formatear duración de entrenamiento (ej., "01:23:45")
   static String formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else {
-      return '${minutes}m';
-    }
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
   // Obtener tiempo relativo (ej., "hace 2 días", "Ahora mismo")
