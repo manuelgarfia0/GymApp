@@ -17,8 +17,8 @@ class _DraftSet {
   final TextEditingController repsCtrl;
   bool isWarmup;
 
-  _DraftSet({double? weight, int? reps, this.isWarmup = false})
-    : id = UniqueKey().toString(),
+  _DraftSet({double? weight, int? reps})
+    : isWarmup = false, id = UniqueKey().toString(),
       weightCtrl = TextEditingController(
         text: weight != null && weight > 0
             ? (weight == weight.toInt()

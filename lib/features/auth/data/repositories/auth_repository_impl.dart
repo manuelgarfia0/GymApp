@@ -41,8 +41,8 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
-    } on http.ClientException {
-      throw const NetworkFailure('Request timed out');
+    } on http.ClientException catch (e) {
+      throw NetworkFailure('Connection error: $e');
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
@@ -69,8 +69,8 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
-    } on http.ClientException {
-      throw const NetworkFailure('Request timed out');
+    } on http.ClientException catch (e) {
+      throw NetworkFailure('Connection error: $e');
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
@@ -102,8 +102,8 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
-    } on http.ClientException {
-      throw const NetworkFailure('Request timed out');
+    } on http.ClientException catch (e) {
+      throw NetworkFailure('Connection error: $e');
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } catch (e) {
