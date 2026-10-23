@@ -24,7 +24,7 @@ abstract class Failure {
 
 /// Fallo relacionado con autenticación y autorización
 class AuthenticationFailure extends Failure {
-  const AuthenticationFailure(String message) : super(message);
+  const AuthenticationFailure(super.message);
 
   /// Instancias comunes de fallos de autenticación
   static const invalidCredentials = AuthenticationFailure(
@@ -43,7 +43,7 @@ class AuthenticationFailure extends Failure {
 
 /// Fallo relacionado con conectividad de red y comunicación con el servidor
 class NetworkFailure extends Failure {
-  const NetworkFailure(String message) : super(message);
+  const NetworkFailure(super.message);
 
   /// Instancias comunes de fallos de red
   static const noConnection = NetworkFailure(
@@ -61,7 +61,7 @@ class NetworkFailure extends Failure {
 
 /// Fallo relacionado con validación de entrada y violaciones de reglas de negocio
 class ValidationFailure extends Failure {
-  const ValidationFailure(String message) : super(message);
+  const ValidationFailure(super.message);
 
   /// Instancias comunes de fallos de validación
   static const emptyUsername = ValidationFailure('Username cannot be empty');

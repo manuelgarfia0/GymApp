@@ -367,7 +367,7 @@ class ActiveWorkoutWidget extends StatelessWidget {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-          Container(
+          SizedBox(
             key: const Key('exercise_list'),
             height: 200,
             child: const Text('Exercise List'),

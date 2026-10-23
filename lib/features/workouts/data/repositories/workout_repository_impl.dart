@@ -14,8 +14,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   @override
   Future<List<Workout>> getUserWorkouts(int userId) async {
     try {
-      if (userId <= 0)
+      if (userId <= 0) {
         throw const ValidationFailure('Valid user ID is required');
+      }
       final dtos = await remoteDatasource.getUserWorkouts(userId);
       return dtos.map((dto) => dto.toEntity()).toList();
     } on SocketException {
@@ -34,8 +35,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   @override
   Future<Workout?> getWorkoutById(int id) async {
     try {
-      if (id <= 0)
+      if (id <= 0) {
         throw const ValidationFailure('Valid workout ID is required');
+      }
       final dto = await remoteDatasource.getWorkoutById(id);
       return dto?.toEntity();
     } on SocketException {

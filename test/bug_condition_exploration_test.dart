@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Importaciones para probar las condiciones de bug
@@ -8,10 +6,6 @@ import 'package:gym_app/features/workouts/data/models/exercise_dto.dart';
 import 'package:gym_app/features/auth/auth_dependencies.dart';
 import 'package:gym_app/features/workouts/workout_dependencies.dart';
 import 'package:gym_app/features/profile/profile_dependencies.dart';
-import 'package:gym_app/features/auth/domain/use_cases/login_user.dart';
-import 'package:gym_app/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:gym_app/features/auth/presentation/screens/login_screen.dart';
-import 'package:gym_app/features/workouts/presentation/screens/active_workout_screen.dart';
 import 'package:gym_app/core/storage/secure_storage_service.dart';
 
 /// Test de exploración de condiciones de bug - Validación de problemas arquitectónicos

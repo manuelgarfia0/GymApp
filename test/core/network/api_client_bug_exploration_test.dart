@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:gym_app/core/network/api_client.dart';
-import 'package:gym_app/core/network/api_constants.dart';
 
 /// **Validates: Requirements 2.1, 2.2, 2.3, 2.4**
 ///

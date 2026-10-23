@@ -47,10 +47,9 @@ class _DraftExercise {
   _DraftExercise({
     required this.exercise,
     this.routineExerciseId,
-    required List<_DraftSet> sets,
+    required this.sets,
     int restSeconds = 90,
   }) : widgetKey = UniqueKey().toString(),
-       sets = sets,
        restCtrl = TextEditingController(text: restSeconds.toString());
 
   int get restSeconds => int.tryParse(restCtrl.text) ?? 90;

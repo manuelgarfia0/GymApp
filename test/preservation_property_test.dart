@@ -1,17 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // Importaciones para probar funcionalidad que debe preservarse
 import 'package:gym_app/core/storage/secure_storage_service.dart';
 import 'package:gym_app/features/auth/auth_dependencies.dart';
 import 'package:gym_app/features/workouts/workout_dependencies.dart';
 import 'package:gym_app/features/profile/profile_dependencies.dart';
-import 'package:gym_app/features/auth/domain/entities/user.dart';
-import 'package:gym_app/features/workouts/domain/entities/exercise.dart';
-import 'package:gym_app/features/workouts/domain/entities/workout.dart';
-import 'package:gym_app/features/workouts/domain/entities/routine.dart';
-import 'package:gym_app/features/profile/domain/entities/user_profile.dart';
 
 /// Test de preservación - Validación de operaciones no afectadas por bugs
 ///
