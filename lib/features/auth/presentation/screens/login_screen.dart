@@ -130,9 +130,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFF1E1E1E),
-                  labelText: 'Username',
+                  labelText: 'Username or Email',
                   labelStyle: const TextStyle(color: Colors.grey),
-                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.person_outline, color: Colors.grey),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

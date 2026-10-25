@@ -1,3 +1,4 @@
+import '../../workout_dependencies.dart';
 import '../entities/workout.dart';
 import '../repositories/workout_repository.dart';
 
@@ -13,6 +14,7 @@ class SaveWorkout {
     _validateWorkout(workout);
     // createWorkout devuelve el Workout creado; si no lanza excepción, fue exitoso
     await _repository.createWorkout(workout);
+    WorkoutDependencies.notifyWorkoutSaved();
     return true;
   }
 

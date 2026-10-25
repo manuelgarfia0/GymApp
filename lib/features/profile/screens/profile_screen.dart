@@ -126,8 +126,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+    return RefreshIndicator(
+      color: Colors.blueAccent,
+      backgroundColor: const Color(0xFF1E1E1E),
+      onRefresh: _load,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -245,7 +250,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildVolumeChart(),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildWorkoutSummaryCard(ProfileWorkoutSummary workout) {

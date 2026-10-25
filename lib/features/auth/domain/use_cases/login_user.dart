@@ -14,7 +14,7 @@ class LoginUser {
   Future<User> call(String username, String password) async {
     // Validate input parameters
     if (username.trim().isEmpty) {
-      throw Exception('Username cannot be empty');
+      throw Exception('Username or email cannot be empty');
     }
 
     if (password.trim().isEmpty) {

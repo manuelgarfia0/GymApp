@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../core/di/core_dependencies.dart';
 import '../../core/network/api_client.dart';
 import '../../core/storage/secure_storage_service.dart';
@@ -21,6 +22,19 @@ import 'domain/use_cases/start_workout.dart';
 import 'domain/use_cases/update_routine.dart';   // NUEVO
 
 class WorkoutDependencies {
+  static ValueNotifier<int>? _workoutSavedNotifier;
+
+  /// Notificador global cuando se guarda o actualiza un entrenamiento.
+  static ValueNotifier<int> get workoutSavedNotifier {
+    _workoutSavedNotifier ??= ValueNotifier<int>(0);
+    return _workoutSavedNotifier!;
+  }
+
+  /// Emite una notificacion para recargar historial y perfil.
+  static void notifyWorkoutSaved() {
+    workoutSavedNotifier.value++;
+  }
+
   static SecureStorageService get storageService =>
       CoreDependencies.storageService;
   static ApiClient get apiClient => CoreDependencies.apiClient;
@@ -142,5 +156,6 @@ class WorkoutDependencies {
     _logExerciseUseCase = null;
     _saveWorkoutUseCase = null;
     _startWorkoutUseCase = null;
+    _workoutSavedNotifier = null;
   }
 }

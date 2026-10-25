@@ -637,6 +637,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       );
 
       await _saveWorkoutUseCase(workout);
+      WorkoutDependencies.notifyWorkoutSaved();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

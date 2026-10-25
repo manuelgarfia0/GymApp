@@ -152,7 +152,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   void _validateCredentials(String username, String password) {
     if (username.trim().isEmpty) {
-      throw const ValidationFailure('Username cannot be empty');
+      throw const ValidationFailure('Username or email cannot be empty');
     }
     if (password.trim().isEmpty) {
       throw const ValidationFailure('Password cannot be empty');

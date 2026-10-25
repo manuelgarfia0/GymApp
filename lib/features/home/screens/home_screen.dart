@@ -18,6 +18,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _historyVersion = 0;
+  int _profileVersion = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WorkoutDependencies.workoutSavedNotifier.addListener(_onWorkoutSaved);
+  }
+
+  @override
+  void dispose() {
+    WorkoutDependencies.workoutSavedNotifier.removeListener(_onWorkoutSaved);
+    super.dispose();
+  }
+
+  void _onWorkoutSaved() {
+    if (mounted) {
+      setState(() {
+        _currentIndex = 0;
+        _historyVersion++;
+        _profileVersion++;
+      });
+    }
+  }
 
   Future<void> _logout() async {
     final confirmed = await showDialog<bool>(
@@ -105,15 +129,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: IndexedStack(
         index: _currentIndex,
-        children: const [
-          _WorkoutHistoryTab(),
-          RoutinesScreen(),
-          ProfileScreen(),
+        children: [
+          _WorkoutHistoryTab(key: ValueKey('history_$_historyVersion')),
+          const RoutinesScreen(),
+          ProfileScreen(key: ValueKey('profile_$_profileVersion')),
         ],
       ),
       bottomNavigationBar: _BottomNav(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: (i) {
+          setState(() {
+            if (i == 0) _historyVersion++;
+            if (i == 2) _profileVersion++;
+            _currentIndex = i;
+          });
+        },
       ),
     );
   }
@@ -122,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
 // ── Workout history tab ──────────────────────────────────────────────────────
 
 class _WorkoutHistoryTab extends StatefulWidget {
-  const _WorkoutHistoryTab();
+  const _WorkoutHistoryTab({super.key});
 
   @override
   State<_WorkoutHistoryTab> createState() => _WorkoutHistoryTabState();

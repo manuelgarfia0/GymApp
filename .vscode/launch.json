@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "GymApp (Chrome - Web:3000)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "chrome",
+            "args": [
+                "--web-port=3000",
+                "--dart-define=API_BASE_URL=http://localhost:8080/api"
+            ]
+        },
+        {
+            "name": "GymApp (Android Emulator)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "args": [
+                "--dart-define=API_BASE_URL=http://10.0.2.2:8080/api"
+            ]
+        },
+        {
+            "name": "GymApp (Windows Desktop)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "windows",
+            "args": [
+                "--dart-define=API_BASE_URL=http://localhost:8080/api"
+            ]
+        },
+        {
+            "name": "GymApp (Dispositivo Seleccionado)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart"
+        }
+    ]
+}
