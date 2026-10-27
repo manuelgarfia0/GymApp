@@ -10,6 +10,7 @@ abstract class WorkoutRemoteDatasource {
   Future<WorkoutDto> createWorkout(WorkoutDto workout);
   Future<WorkoutDto> updateWorkout(WorkoutDto workout);
   Future<WorkoutDto> endWorkout(int workoutId);
+  Future<bool> deleteWorkout(int id);
 }
 
 class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
@@ -20,8 +21,6 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
   @override
   Future<List<WorkoutDto>> getUserWorkouts(int userId) async {
     try {
-      // CORRECCIÓN: el backend usa GET /api/workouts/user/{userId} (path variable)
-      // NO usar query param ?userId= porque el backend espera @PathVariable
       final uri = Uri.parse('${ApiConstants.workoutsEndpoint}/user/$userId');
 
       final response = await apiClient.get(uri);
@@ -149,9 +148,39 @@ class WorkoutRemoteDatasourceImpl implements WorkoutRemoteDatasource {
   }
 
   @override
+  Future<bool> deleteWorkout(int id) async {
+    try {
+      final response = await apiClient.delete(
+        Uri.parse('${ApiConstants.workoutsEndpoint}/$id'),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      } else if (response.statusCode == 404) {
+        return false;
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication required');
+      } else if (response.statusCode == 403) {
+        throw Exception('Forbidden');
+      } else {
+        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
+        throw Exception(
+          errorData?['message'] as String? ?? 'Failed to delete workout',
+        );
+      }
+    } on SocketException {
+      throw Exception('No internet connection');
+    } on FormatException {
+      throw Exception('Invalid response format');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Unexpected error: $e');
+    }
+  }
+
+  @override
   Future<WorkoutDto> endWorkout(int workoutId) async {
     try {
-      // PATCH /api/workouts/{id}/end — el backend setea endTime = now()
       final response = await apiClient.patch(
         Uri.parse('${ApiConstants.workoutsEndpoint}/$workoutId/end'),
         body: jsonEncode({}),

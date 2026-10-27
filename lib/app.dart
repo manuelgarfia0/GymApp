@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import 'core/theme/app_theme.dart';
-import 'features/home/screens/home_screen.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
+import 'core/di/core_dependencies.dart';
 import 'core/storage/secure_storage_service.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/auth_dependencies.dart';
+import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/home/screens/home_screen.dart';
 
 class GymApp extends StatelessWidget {
   const GymApp({super.key});
@@ -30,11 +31,12 @@ class AuthCheckScreen extends StatefulWidget {
 }
 
 class _AuthCheckScreenState extends State<AuthCheckScreen> {
-  final _storageService = SecureStorageService();
+  late final SecureStorageService _storageService;
 
   @override
   void initState() {
     super.initState();
+    _storageService = CoreDependencies.storageService;
     _checkToken();
   }
 
@@ -46,9 +48,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
 
     if (!mounted) return;
 
-    // CORRECCIÓN: antes solo comprobaba si el token existía, sin verificar si
-    // estaba expirado. Un token expirado enviaba al usuario al HomeScreen
-    // donde todas las llamadas API fallaban con 401.
+    // Comprobamos si el token existe y no está expirado
     final bool hasValidToken = token != null &&
         token.isNotEmpty &&
         !JwtDecoder.isExpired(token);

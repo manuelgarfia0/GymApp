@@ -1,6 +1,7 @@
 // lib/core/network/api_client.dart
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../storage/secure_storage_service.dart';
 
@@ -22,15 +23,15 @@ class ApiClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    print('🌐 API Request: ${request.method} ${request.url}');
+    debugPrint('🌐 API Request: ${request.method} ${request.url}');
 
     final token = await _storageService.readToken();
 
     if (token != null && token.isNotEmpty) {
       request.headers['Authorization'] = 'Bearer $token';
-      print('🔑 Token añadido (${token.substring(0, 20)}...)');
+      debugPrint('🔑 Token añadido (${token.substring(0, token.length > 20 ? 20 : token.length)}...)');
     } else {
-      print('⚠️ No se encontró token');
+      debugPrint('⚠️ No se encontró token');
     }
 
     // Fallback: si aún no hay Content-Type lo ponemos aquí.
@@ -41,10 +42,10 @@ class ApiClient extends http.BaseClient {
 
     try {
       final response = await _inner.send(request);
-      print('🌐 API Response: ${response.statusCode} — ${request.url}');
+      debugPrint('🌐 API Response: ${response.statusCode} — ${request.url}');
       return response;
     } catch (e) {
-      print('❌ API Error: $e — ${request.url}');
+      debugPrint('❌ API Error: $e — ${request.url}');
       rethrow;
     }
   }

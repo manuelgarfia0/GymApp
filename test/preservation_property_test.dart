@@ -8,17 +8,13 @@ import 'package:gym_app/features/profile/profile_dependencies.dart';
 
 /// Test de preservación - Validación de operaciones no afectadas por bugs
 ///
-/// **IMPORTANTE**: Seguir metodología de observación primero
-/// **OBJETIVO**: Capturar patrones de comportamiento observados en código SIN CORREGIR
-/// **EXPECTATIVA**: Estos tests DEBEN PASAR en código sin corregir para establecer línea base
-/// **NOTA**: Estos tests confirman que la funcionalidad no afectada por bugs permanece inalterada
-///
 /// **Property 2: Preservation - Non-Affected System Operations**
 /// **Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8**
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Property 2: Preservation - Non-Affected System Operations', () {
     setUp(() {
-      // Limpiar dependencias antes de cada test
       AuthDependencies.reset();
       WorkoutDependencies.reset();
       ProfileDependencies.reset();
@@ -27,15 +23,10 @@ void main() {
     test(
       'Preservation 3.1: Authentication flows with valid tokens work correctly',
       () async {
-        // **EXPECTATIVA: Este test DEBE PASAR en código sin corregir**
-        // Observar comportamiento actual de flujos de autenticación que funcionan correctamente
-
-        // Simular token JWT válido almacenado correctamente
         final secureStorage = SecureStorageService();
         const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.token';
         await secureStorage.saveToken(validToken);
 
-        // Verificar que el token se almacena y lee correctamente (funcionalidad preservada)
         final storedToken = await secureStorage.readToken();
         expect(
           storedToken,
@@ -43,8 +34,12 @@ void main() {
           reason: 'Valid JWT tokens should be stored and retrieved correctly',
         );
 
-        // Verificar que el servicio de almacenamiento seguro funciona consistentemente
         expect(
           storedToken,
           isNotNull,
-          reason: 'SecureStorage should maintain token pe
+          reason: 'SecureStorage should maintain token persistence',
+        );
+      },
+    );
+  });
+}

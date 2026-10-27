@@ -106,6 +106,26 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   }
 
   @override
+  Future<bool> deleteWorkout(int id) async {
+    try {
+      if (id <= 0) {
+        throw const ValidationFailure('Valid workout ID is required');
+      }
+      return await remoteDatasource.deleteWorkout(id);
+    } on SocketException {
+      throw const NetworkFailure('No internet connection available');
+    } on http.ClientException {
+      throw const NetworkFailure('Request timed out');
+    } on FormatException {
+      throw const NetworkFailure('Invalid response format from server');
+    } on ValidationFailure {
+      rethrow;
+    } catch (e) {
+      throw _mapError(e, 'Failed to delete workout');
+    }
+  }
+
+  @override
   Future<Workout> endWorkout(int workoutId) async {
     try {
       if (workoutId <= 0) {
@@ -148,7 +168,6 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
       weight: set.weight,
       reps: set.reps,
       notes: set.notes,
-      // CORRECCIÓN: enviamos isWarmup e isCompleted, eliminamos timestamp
       isWarmup: set.isWarmup,
       isCompleted: set.isCompleted,
     );

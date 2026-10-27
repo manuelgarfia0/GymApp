@@ -1,3 +1,4 @@
+import 'package:gym_app/core/di/core_dependencies.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gym_app/core/network/api_client.dart';
 import 'package:gym_app/features/auth/data/datasources/auth_remote_datasource.dart';
@@ -12,7 +13,7 @@ void main() {
     late AuthRemoteDatasourceImpl authDatasource;
 
     setUp(() {
-      apiClient = ApiClient();
+      apiClient = ApiClient(CoreDependencies.storageService);
       authDatasource = AuthRemoteDatasourceImpl(apiClient);
     });
 

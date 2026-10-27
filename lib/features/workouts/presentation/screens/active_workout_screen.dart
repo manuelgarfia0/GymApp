@@ -697,15 +697,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => _askToCancelWorkout(),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        final shouldPop = await _askToCancelWorkout();
+        if (shouldPop && context.mounted) {
+          Navigator.pop(context);
+        }
+      },
       child: Scaffold(
         backgroundColor: const Color(0xFF121212),
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.close, color: Colors.white),
             onPressed: () async {
-              if (await _askToCancelWorkout() && mounted) {
+              if (await _askToCancelWorkout() && context.mounted) {
                 Navigator.pop(context);
               }
             },

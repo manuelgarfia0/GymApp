@@ -12,14 +12,15 @@ import 'domain/repositories/exercise_repository.dart';
 import 'domain/repositories/routine_repository.dart';
 import 'domain/repositories/workout_repository.dart';
 import 'domain/use_cases/create_routine.dart';
-import 'domain/use_cases/delete_routine.dart';   // NUEVO
+import 'domain/use_cases/delete_routine.dart';
+import 'domain/use_cases/delete_workout.dart';
 import 'domain/use_cases/get_exercises.dart';
 import 'domain/use_cases/get_routines.dart';
 import 'domain/use_cases/get_workout_history.dart';
 import 'domain/use_cases/log_exercise.dart';
 import 'domain/use_cases/save_workout.dart';
 import 'domain/use_cases/start_workout.dart';
-import 'domain/use_cases/update_routine.dart';   // NUEVO
+import 'domain/use_cases/update_routine.dart';
 
 class WorkoutDependencies {
   static ValueNotifier<int>? _workoutSavedNotifier;
@@ -48,8 +49,9 @@ class WorkoutDependencies {
   static WorkoutRepository? _workoutRepository;
 
   static CreateRoutine? _createRoutineUseCase;
-  static DeleteRoutine? _deleteRoutineUseCase;   // NUEVO
-  static UpdateRoutine? _updateRoutineUseCase;   // NUEVO
+  static DeleteRoutine? _deleteRoutineUseCase;
+  static UpdateRoutine? _updateRoutineUseCase;
+  static DeleteWorkout? _deleteWorkoutUseCase;
   static GetExercises? _getExercisesUseCase;
   static GetRoutines? _getRoutinesUseCase;
   static GetWorkoutHistory? _getWorkoutHistoryUseCase;
@@ -98,16 +100,19 @@ class WorkoutDependencies {
     return _createRoutineUseCase!;
   }
 
-  // NUEVO
   static DeleteRoutine get deleteRoutineUseCase {
     _deleteRoutineUseCase ??= DeleteRoutine(routineRepository);
     return _deleteRoutineUseCase!;
   }
 
-  // NUEVO
   static UpdateRoutine get updateRoutineUseCase {
     _updateRoutineUseCase ??= UpdateRoutine(routineRepository);
     return _updateRoutineUseCase!;
+  }
+
+  static DeleteWorkout get deleteWorkoutUseCase {
+    _deleteWorkoutUseCase ??= DeleteWorkout(workoutRepository);
+    return _deleteWorkoutUseCase!;
   }
 
   static GetExercises get getExercisesUseCase {
@@ -148,8 +153,9 @@ class WorkoutDependencies {
     _routineRepository = null;
     _workoutRepository = null;
     _createRoutineUseCase = null;
-    _deleteRoutineUseCase = null;   // NUEVO
-    _updateRoutineUseCase = null;   // NUEVO
+    _deleteRoutineUseCase = null;
+    _updateRoutineUseCase = null;
+    _deleteWorkoutUseCase = null;
     _getExercisesUseCase = null;
     _getRoutinesUseCase = null;
     _getWorkoutHistoryUseCase = null;

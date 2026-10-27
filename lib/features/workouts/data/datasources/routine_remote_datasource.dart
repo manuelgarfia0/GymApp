@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 import '../../../../core/network/api_client.dart';
@@ -24,9 +25,9 @@ class RoutineRemoteDatasourceImpl implements RoutineRemoteDatasource {
       // El frontend anterior usaba query param ?userId= que daba 404
       final uri = Uri.parse('${ApiConstants.routinesEndpoint}/user/$userId');
 
-      print('🔍 Routine API: Calling ${uri.toString()}');
+      debugPrint('🔍 Routine API: Calling ${uri.toString()}');
       final response = await apiClient.get(uri);
-      print('🔍 Routine API: Response status ${response.statusCode}');
+      debugPrint('🔍 Routine API: Response status ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as List<dynamic>;

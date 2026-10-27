@@ -160,7 +160,7 @@ void main() {
           () {
             final dto = WorkoutSetDto.fromJson(jsonWithNullTimestamp);
             expect(dto.exerciseId, equals(1));
-            expect(dto.timestamp, isNull);
+            // timestamp removed from DTO to match backend
           },
           returnsNormally,
           reason: 'WorkoutSetDto debería manejar timestamp nulo',

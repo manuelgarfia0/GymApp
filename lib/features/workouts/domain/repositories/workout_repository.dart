@@ -1,7 +1,7 @@
 import '../entities/workout.dart';
 
 /// Interfaz de repositorio para operaciones de workouts.
-/// Eliminados: saveWorkout (llamaba a endpoint borrado) y getActiveWorkout (idem).
+/// Soporta ciclo completo CRUD y finalización de entrenamientos.
 abstract class WorkoutRepository {
   Future<List<Workout>> getUserWorkouts(int userId);
   Future<Workout?> getWorkoutById(int id);
@@ -11,6 +11,9 @@ abstract class WorkoutRepository {
   Future<Workout> createWorkout(Workout workout);
 
   Future<Workout> updateWorkout(Workout workout);
+
+  /// Elimina un workout existente.
+  Future<bool> deleteWorkout(int id);
 
   /// Finaliza un workout activo: llama a PATCH /api/workouts/{id}/end
   /// El backend setea endTime = LocalDateTime.now()

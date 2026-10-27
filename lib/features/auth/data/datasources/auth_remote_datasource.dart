@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -68,23 +69,23 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   Future<String> login(String username, String password) async {
     return await _executeWithRetry(() async {
       try {
-        print('🔄 AuthDatasource: Enviando petición de login...');
-        print('   Endpoint: ${ApiConstants.loginEndpoint}');
-        print('   Username: $username');
+        debugPrint('🔄 AuthDatasource: Enviando petición de login...');
+        debugPrint('   Endpoint: ${ApiConstants.loginEndpoint}');
+        debugPrint('   Username: $username');
 
         final response = await apiClient.post(
           Uri.parse(ApiConstants.loginEndpoint),
           body: jsonEncode({'username': username, 'password': password}),
         );
 
-        print('📡 AuthDatasource: Respuesta recibida');
-        print('   Status Code: ${response.statusCode}');
-        print('   Headers: ${response.headers}');
-        print('   Body: ${response.body}');
+        debugPrint('📡 AuthDatasource: Respuesta recibida');
+        debugPrint('   Status Code: ${response.statusCode}');
+        debugPrint('   Headers: ${response.headers}');
+        debugPrint('   Body: ${response.body}');
 
         return _handleLoginResponse(response);
       } on SocketException catch (e) {
-        print('❌ AuthDatasource: Error de conexión: $e');
+        debugPrint('❌ AuthDatasource: Error de conexión: $e');
         throw ServerException(
           message:
               'No internet connection available. Please check your network and try again.',
@@ -92,14 +93,14 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           details: {'originalError': e.toString()},
         );
       } on HttpException catch (e) {
-        print('❌ AuthDatasource: Error HTTP: $e');
+        debugPrint('❌ AuthDatasource: Error HTTP: $e');
         throw ServerException(
           message: 'Network request failed. Please try again.',
           type: ServerErrorType.networkError,
           details: {'originalError': e.toString()},
         );
       } on FormatException catch (e) {
-        print('❌ AuthDatasource: Error de formato: $e');
+        debugPrint('❌ AuthDatasource: Error de formato: $e');
         throw ServerException(
           message:
               'Invalid response format from server. Please contact support if this persists.',
@@ -107,7 +108,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           details: {'originalError': e.toString()},
         );
       } catch (e) {
-        print('❌ AuthDatasource: Error inesperado: $e');
+        debugPrint('❌ AuthDatasource: Error inesperado: $e');
         if (e is ServerException) rethrow;
         throw ServerException(
           message: 'Unexpected error occurred during login: ${e.toString()}',
@@ -123,8 +124,8 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     final statusCode = response.statusCode as int;
     final body = response.body as String;
 
-    print('🔍 AuthDatasource: Analizando respuesta del servidor...');
-    print('   Status Code: $statusCode');
+    debugPrint('🔍 AuthDatasource: Analizando respuesta del servidor...');
+    debugPrint('   Status Code: $statusCode');
 
     if (statusCode == 200) {
       try {
@@ -132,7 +133,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         final token = data['token'] as String?;
 
         if (token == null || token.isEmpty) {
-          print('❌ AuthDatasource: Token no encontrado en la respuesta');
+          debugPrint('❌ AuthDatasource: Token no encontrado en la respuesta');
           throw ServerException(
             message:
                 'Server response is missing authentication token. Please contact support.',
@@ -142,7 +143,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           );
         }
 
-        print('✅ AuthDatasource: Token recibido exitosamente');
+        debugPrint('✅ AuthDatasource: Token recibido exitosamente');
         return token;
       } catch (e) {
         if (e is ServerException) rethrow;
@@ -160,7 +161,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     try {
       errorData = jsonDecode(body) as Map<String, dynamic>?;
     } catch (e) {
-      print('⚠️ AuthDatasource: No se pudo parsear el cuerpo del error');
+      debugPrint('⚠️ AuthDatasource: No se pudo parsear el cuerpo del error');
     }
 
     final serverMessage = errorData?['message'] as String?;
@@ -168,7 +169,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
     switch (statusCode) {
       case 401:
-        print('❌ AuthDatasource: Credenciales inválidas (401)');
+        debugPrint('❌ AuthDatasource: Credenciales inválidas (401)');
         throw ServerException(
           message:
               'Invalid username or password. Please check your credentials and try again.',
@@ -178,7 +179,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       case 403:
-        print('❌ AuthDatasource: Acceso prohibido (403)');
+        debugPrint('❌ AuthDatasource: Acceso prohibido (403)');
         throw ServerException(
           message:
               'Account access is restricted. Please contact support for assistance.',
@@ -188,7 +189,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       case 404:
-        print('❌ AuthDatasource: Servicio no encontrado (404)');
+        debugPrint('❌ AuthDatasource: Servicio no encontrado (404)');
         throw ServerException(
           message:
               'Authentication service is temporarily unavailable. Please try again later.',
@@ -198,7 +199,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       case 500:
-        print('❌ AuthDatasource: Error interno del servidor (500)');
+        debugPrint('❌ AuthDatasource: Error interno del servidor (500)');
         final message = _categorizeServerError(serverMessage, serverError);
         throw ServerException(
           message: message,
@@ -208,7 +209,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       case 503:
-        print('❌ AuthDatasource: Servicio no disponible (503)');
+        debugPrint('❌ AuthDatasource: Servicio no disponible (503)');
         throw ServerException(
           message:
               'Authentication service is temporarily down for maintenance. Please try again in a few minutes.',
@@ -218,7 +219,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       default:
-        print('❌ AuthDatasource: Error del servidor desconocido ($statusCode)');
+        debugPrint('❌ AuthDatasource: Error del servidor desconocido ($statusCode)');
         throw ServerException(
           message:
               serverMessage ?? 'Server error occurred. Please try again later.',
@@ -264,7 +265,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
             milliseconds:
                 baseDelay.inMilliseconds * pow(2, attempt - 1).toInt(),
           );
-          print(
+          debugPrint(
             '🔄 AuthDatasource: Reintentando en ${delay.inSeconds}s (intento $attempt/$maxRetries)',
           );
           await Future.delayed(delay);
