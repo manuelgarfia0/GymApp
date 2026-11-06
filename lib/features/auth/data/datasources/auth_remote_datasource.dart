@@ -41,25 +41,14 @@ class ServerException implements Exception {
       'ServerException: $message (Type: $type, Status: $statusCode)';
 }
 
-/// Abstract interface for authentication remote data source
+/// Interfaz abstracta para la fuente de datos remota de autenticación
 abstract class AuthRemoteDatasource {
-  /// Authenticates user with username and password
-  /// Returns JWT token on success
-  /// Throws exception on failure
   Future<String> login(String username, String password);
-
-  /// Registers a new user account
-  /// Returns JWT token on success
-  /// Throws exception on failure
   Future<String> register(String username, String email, String password);
-
-  /// Retrieves current user information from API
-  /// Requires valid JWT token in headers
-  /// Returns UserDto on success
   Future<UserDto> getCurrentUser();
 }
 
-/// Implementation of AuthRemoteDatasource using HTTP API
+/// Implementación de AuthRemoteDatasource usando la API HTTP
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   final ApiClient apiClient;
 
@@ -78,32 +67,27 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           body: jsonEncode({'username': username, 'password': password}),
         );
 
-        debugPrint('📡 AuthDatasource: Respuesta recibida');
-        debugPrint('   Status Code: ${response.statusCode}');
-        debugPrint('   Headers: ${response.headers}');
-        debugPrint('   Body: ${response.body}');
+        debugPrint('📡 AuthDatasource: Respuesta recibida (${response.statusCode})');
 
         return _handleLoginResponse(response);
       } on SocketException catch (e) {
         debugPrint('❌ AuthDatasource: Error de conexión: $e');
         throw ServerException(
-          message:
-              'No internet connection available. Please check your network and try again.',
+          message: 'No hay conexión a internet disponible. Comprueba tu red.',
           type: ServerErrorType.networkError,
           details: {'originalError': e.toString()},
         );
       } on HttpException catch (e) {
         debugPrint('❌ AuthDatasource: Error HTTP: $e');
         throw ServerException(
-          message: 'Network request failed. Please try again.',
+          message: 'Error en la petición de red. Inténtalo de nuevo.',
           type: ServerErrorType.networkError,
           details: {'originalError': e.toString()},
         );
       } on FormatException catch (e) {
         debugPrint('❌ AuthDatasource: Error de formato: $e');
         throw ServerException(
-          message:
-              'Invalid response format from server. Please contact support if this persists.',
+          message: 'Formato de respuesta del servidor no válido.',
           type: ServerErrorType.validationError,
           details: {'originalError': e.toString()},
         );
@@ -111,7 +95,7 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         debugPrint('❌ AuthDatasource: Error inesperado: $e');
         if (e is ServerException) rethrow;
         throw ServerException(
-          message: 'Unexpected error occurred during login: ${e.toString()}',
+          message: 'Error inesperado durante el login: ${e.toString()}',
           type: ServerErrorType.unknownError,
           details: {'originalError': e.toString()},
         );
@@ -124,31 +108,25 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     final statusCode = response.statusCode as int;
     final body = response.body as String;
 
-    debugPrint('🔍 AuthDatasource: Analizando respuesta del servidor...');
-    debugPrint('   Status Code: $statusCode');
-
     if (statusCode == 200) {
       try {
         final data = jsonDecode(body) as Map<String, dynamic>;
         final token = data['token'] as String?;
 
         if (token == null || token.isEmpty) {
-          debugPrint('❌ AuthDatasource: Token no encontrado en la respuesta');
           throw ServerException(
-            message:
-                'Server response is missing authentication token. Please contact support.',
+            message: 'La respuesta del servidor no contiene el token de sesión.',
             type: ServerErrorType.serverError,
             statusCode: statusCode,
             details: {'responseBody': body},
           );
         }
 
-        debugPrint('✅ AuthDatasource: Token recibido exitosamente');
         return token;
       } catch (e) {
         if (e is ServerException) rethrow;
         throw ServerException(
-          message: 'Failed to parse server response. Please try again.',
+          message: 'Error al interpretar la respuesta del servidor.',
           type: ServerErrorType.validationError,
           statusCode: statusCode,
           details: {'responseBody': body, 'parseError': e.toString()},
@@ -156,51 +134,66 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       }
     }
 
-    // Manejar errores específicos del servidor
     Map<String, dynamic>? errorData;
     try {
       errorData = jsonDecode(body) as Map<String, dynamic>?;
-    } catch (e) {
-      debugPrint('⚠️ AuthDatasource: No se pudo parsear el cuerpo del error');
-    }
+    } catch (_) {}
 
-    final serverMessage = errorData?['message'] as String?;
+    String? serverMessage;
+    if (errorData != null) {
+      if (errorData['fieldErrors'] is Map) {
+        final fields = errorData['fieldErrors'] as Map;
+        if (fields.isNotEmpty) {
+          serverMessage = fields.values.join(', ');
+        }
+      }
+      serverMessage ??= errorData['message'] as String?;
+    }
     final serverError = errorData?['error'] as String?;
 
     switch (statusCode) {
-      case 401:
-        debugPrint('❌ AuthDatasource: Credenciales inválidas (401)');
+      case 400:
         throw ServerException(
-          message:
-              'Invalid username or password. Please check your credentials and try again.',
+          message: serverMessage ?? 'Datos de inicio de sesión no válidos.',
+          type: ServerErrorType.validationError,
+          statusCode: statusCode,
+          details: errorData,
+        );
+
+      case 401:
+        throw ServerException(
+          message: serverMessage ?? 'Usuario o contraseña incorrectos. Verifica tus credenciales.',
           type: ServerErrorType.authentication,
           statusCode: statusCode,
           details: errorData,
         );
 
       case 403:
-        debugPrint('❌ AuthDatasource: Acceso prohibido (403)');
         throw ServerException(
-          message:
-              'Account access is restricted. Please contact support for assistance.',
+          message: serverMessage ?? 'Acceso a la cuenta denegado.',
           type: ServerErrorType.forbidden,
           statusCode: statusCode,
           details: errorData,
         );
 
       case 404:
-        debugPrint('❌ AuthDatasource: Servicio no encontrado (404)');
         throw ServerException(
-          message:
-              'Authentication service is temporarily unavailable. Please try again later.',
+          message: serverMessage ?? 'Servicio de autenticación no encontrado en el servidor.',
           type: ServerErrorType.notFound,
           statusCode: statusCode,
           details: errorData,
         );
 
+      case 409:
+        throw ServerException(
+          message: serverMessage ?? 'Conflicto con los datos proporcionados.',
+          type: ServerErrorType.conflict,
+          statusCode: statusCode,
+          details: errorData,
+        );
+
       case 500:
-        debugPrint('❌ AuthDatasource: Error interno del servidor (500)');
-        final message = _categorizeServerError(serverMessage, serverError);
+        final message = serverMessage ?? _categorizeServerError(serverMessage, serverError);
         throw ServerException(
           message: message,
           type: ServerErrorType.serverError,
@@ -209,20 +202,16 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         );
 
       case 503:
-        debugPrint('❌ AuthDatasource: Servicio no disponible (503)');
         throw ServerException(
-          message:
-              'Authentication service is temporarily down for maintenance. Please try again in a few minutes.',
+          message: serverMessage ?? 'El servicio está en mantenimiento temporalmente. Inténtalo en unos minutos.',
           type: ServerErrorType.serviceUnavailable,
           statusCode: statusCode,
           details: errorData,
         );
 
       default:
-        debugPrint('❌ AuthDatasource: Error del servidor desconocido ($statusCode)');
         throw ServerException(
-          message:
-              serverMessage ?? 'Server error occurred. Please try again later.',
+          message: serverMessage ?? 'Error del servidor ($statusCode). Inténtalo más tarde.',
           type: ServerErrorType.unknownError,
           statusCode: statusCode,
           details: errorData,
@@ -235,16 +224,13 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
     final message = (serverMessage ?? serverError ?? '').toLowerCase();
 
     if (message.contains('database') || message.contains('connection')) {
-      return 'Database connection error. The server is experiencing connectivity issues. Please try again in a few minutes.';
+      return 'Error de conexión con la base de datos en el servidor. Inténtalo en unos minutos.';
     } else if (message.contains('jwt') || message.contains('token')) {
-      return 'Authentication system error. There\'s an issue with the login system. Please try again or contact support.';
+      return 'Error en el sistema de autenticación de tokens. Vuelve a iniciar sesión.';
     } else if (message.contains('timeout')) {
-      return 'Server timeout error. The request took too long to process. Please try again.';
-    } else if (message.contains('configuration') ||
-        message.contains('config')) {
-      return 'Server configuration error. The authentication service is misconfigured. Please contact support.';
+      return 'El servidor tardó demasiado en responder. Inténtalo de nuevo.';
     } else {
-      return 'Internal server error occurred. The authentication service is experiencing technical difficulties. Please try again later or contact support if the problem persists.';
+      return 'Ha ocurrido un error interno en el servidor. Inténtalo más tarde.';
     }
   }
 
@@ -257,37 +243,29 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       try {
         return await operation();
       } on ServerException catch (e) {
-        // Solo reintentar para errores temporales del servidor
         final shouldRetry = _shouldRetryError(e.type) && attempt < maxRetries;
 
         if (shouldRetry) {
           final delay = Duration(
-            milliseconds:
-                baseDelay.inMilliseconds * pow(2, attempt - 1).toInt(),
+            milliseconds: baseDelay.inMilliseconds * pow(2, attempt - 1).toInt(),
           );
-          debugPrint(
-            '🔄 AuthDatasource: Reintentando en ${delay.inSeconds}s (intento $attempt/$maxRetries)',
-          );
+          debugPrint('🔄 AuthDatasource: Reintentando en ${delay.inSeconds}s (intento $attempt/$maxRetries)');
           await Future.delayed(delay);
           continue;
         }
 
-        // No reintentar o se agotaron los intentos
         rethrow;
       } catch (e) {
-        // Para otros tipos de errores, no reintentar
         rethrow;
       }
     }
 
-    // Este punto no debería alcanzarse nunca
-    throw ServerException(
-      message: 'Maximum retry attempts exceeded',
+    throw const ServerException(
+      message: 'Se superó el número máximo de reintentos de conexión.',
       type: ServerErrorType.unknownError,
     );
   }
 
-  /// Determina si un tipo de error debe ser reintentado
   bool _shouldRetryError(ServerErrorType errorType) {
     switch (errorType) {
       case ServerErrorType.serverError:
@@ -323,30 +301,79 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         }),
       );
 
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final statusCode = response.statusCode;
+      final body = response.body;
+
+      if (statusCode == 201 || statusCode == 200) {
+        final data = jsonDecode(body) as Map<String, dynamic>;
         final token = data['token'] as String?;
 
         if (token == null || token.isEmpty) {
-          throw Exception('Invalid response: token not found');
+          throw const ServerException(
+            message: 'El servidor no devolvió el token de registro.',
+            type: ServerErrorType.serverError,
+            statusCode: 200,
+          );
         }
 
         return token;
-      } else if (response.statusCode == 409) {
-        throw Exception('Username or email already exists');
+      }
+
+      // Parsear cuerpo de error detallado del backend
+      Map<String, dynamic>? errorData;
+      try {
+        errorData = jsonDecode(body) as Map<String, dynamic>?;
+      } catch (_) {}
+
+      String? specificMessage;
+      if (errorData != null) {
+        if (errorData['fieldErrors'] is Map) {
+          final fields = errorData['fieldErrors'] as Map;
+          if (fields.isNotEmpty) {
+            specificMessage = fields.values.join(', ');
+          }
+        }
+        specificMessage ??= errorData['message'] as String?;
+      }
+
+      if (statusCode == 409) {
+        throw ServerException(
+          message: specificMessage ?? 'El usuario o correo electrónico ya están registrados.',
+          type: ServerErrorType.conflict,
+          statusCode: statusCode,
+          details: errorData,
+        );
+      } else if (statusCode == 400) {
+        throw ServerException(
+          message: specificMessage ?? 'Datos de registro no válidos.',
+          type: ServerErrorType.validationError,
+          statusCode: statusCode,
+          details: errorData,
+        );
       } else {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Registration failed';
-        throw Exception(errorMessage);
+        throw ServerException(
+          message: specificMessage ?? 'Error en el registro ($statusCode). Inténtalo más tarde.',
+          type: ServerErrorType.serverError,
+          statusCode: statusCode,
+          details: errorData,
+        );
       }
     } on SocketException {
-      throw Exception('No internet connection');
+      throw const ServerException(
+        message: 'No hay conexión a internet disponible. Comprueba tu red.',
+        type: ServerErrorType.networkError,
+      );
     } on FormatException {
-      throw Exception('Invalid response format');
+      throw const ServerException(
+        message: 'Formato de respuesta del servidor no válido.',
+        type: ServerErrorType.validationError,
+      );
     } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('Unexpected error: $e');
+      if (e is ServerException) rethrow;
+      throw ServerException(
+        message: 'Error inesperado durante el registro: $e',
+        type: ServerErrorType.unknownError,
+      );
     }
   }
 
@@ -361,20 +388,41 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return UserDto.fromJson(data);
       } else if (response.statusCode == 401) {
-        throw Exception('Authentication required');
+        throw const ServerException(
+          message: 'Sesión expirada o no autenticada.',
+          type: ServerErrorType.authentication,
+          statusCode: 401,
+        );
       } else {
-        final errorData = jsonDecode(response.body) as Map<String, dynamic>?;
-        final errorMessage =
-            errorData?['message'] as String? ?? 'Failed to get user';
-        throw Exception(errorMessage);
+        Map<String, dynamic>? errorData;
+        try {
+          errorData = jsonDecode(response.body) as Map<String, dynamic>?;
+        } catch (_) {}
+
+        final errorMessage = errorData?['message'] as String? ?? 'Error al obtener la información del usuario';
+        throw ServerException(
+          message: errorMessage,
+          type: ServerErrorType.serverError,
+          statusCode: response.statusCode,
+          details: errorData,
+        );
       }
     } on SocketException {
-      throw Exception('No internet connection');
+      throw const ServerException(
+        message: 'No hay conexión a internet disponible.',
+        type: ServerErrorType.networkError,
+      );
     } on FormatException {
-      throw Exception('Invalid response format');
+      throw const ServerException(
+        message: 'Formato de respuesta del servidor no válido.',
+        type: ServerErrorType.validationError,
+      );
     } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('Unexpected error: $e');
+      if (e is ServerException) rethrow;
+      throw ServerException(
+        message: 'Error inesperado al obtener usuario: $e',
+        type: ServerErrorType.unknownError,
+      );
     }
   }
 }

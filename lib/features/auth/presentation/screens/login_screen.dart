@@ -46,13 +46,17 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) _showSnackBar(e.message, Colors.red);
     } on NetworkFailure catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message),
+            content: Text(
+              e.message,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
-              label: 'Retry',
+              label: 'Reintentar',
               textColor: Colors.white,
               onPressed: _login,
             ),
@@ -61,10 +65,14 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on ValidationFailure catch (e) {
       if (mounted) _showSnackBar(e.message, Colors.amber);
-    } catch (_) {
+    } catch (e) {
+      final cleanMsg = e
+          .toString()
+          .replaceFirst(RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'), '')
+          .trim();
       if (mounted) {
         _showSnackBar(
-          'An unexpected error occurred. Please try again.',
+          cleanMsg.isNotEmpty ? cleanMsg : 'Ha ocurrido un error inesperado al iniciar sesión.',
           Colors.red,
         );
       }
@@ -74,9 +82,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         backgroundColor: color,
         duration: const Duration(seconds: 4),
       ),

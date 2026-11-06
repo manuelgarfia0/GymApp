@@ -38,7 +38,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final confirm = _confirmPasswordController.text;
 
     if (password != confirm) {
-      _showError('Passwords do not match');
+      _showError('Las contraseñas no coinciden', color: Colors.amber);
       return;
     }
 
@@ -60,7 +60,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on AuthenticationFailure catch (e) {
       if (mounted) _showError(e.message);
     } catch (e) {
-      if (mounted) _showError('Registration failed. Please try again.');
+      final cleanMsg = e
+          .toString()
+          .replaceFirst(RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'), '')
+          .trim();
+      if (mounted) {
+        _showError(cleanMsg.isNotEmpty ? cleanMsg : 'Error al registrar la cuenta. Inténtalo de nuevo.');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -71,14 +77,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Color color = Colors.red,
     bool retry = false,
   }) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         backgroundColor: color,
         duration: const Duration(seconds: 4),
         action: retry
             ? SnackBarAction(
-                label: 'Retry',
+                label: 'Reintentar',
                 textColor: Colors.white,
                 onPressed: _register,
               )
@@ -109,7 +119,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Create Account',
+                'Crear Cuenta',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -118,20 +128,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Start tracking your progress',
+                'Comienza a seguir tu progreso',
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 40),
               _buildField(
                 controller: _usernameController,
-                label: 'Username',
+                label: 'Usuario',
                 icon: Icons.person,
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 16),
               _buildField(
                 controller: _emailController,
-                label: 'Email',
+                label: 'Correo electrónico',
                 icon: Icons.email,
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
@@ -139,7 +149,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               _buildField(
                 controller: _passwordController,
-                label: 'Password',
+                label: 'Contraseña (mínimo 8 caracteres)',
                 icon: Icons.lock,
                 obscure: _obscurePassword,
                 textInputAction: TextInputAction.next,
@@ -155,7 +165,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               _buildField(
                 controller: _confirmPasswordController,
-                label: 'Confirm password',
+                label: 'Confirmar contraseña',
                 icon: Icons.lock_outline,
                 obscure: _obscureConfirm,
                 textInputAction: TextInputAction.done,
@@ -184,7 +194,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         onPressed: _register,
                         child: const Text(
-                          'CREATE ACCOUNT',
+                          'CREAR CUENTA',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

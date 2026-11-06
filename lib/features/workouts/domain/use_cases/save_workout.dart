@@ -1,10 +1,9 @@
+import '../../../../core/errors/failures.dart';
 import '../../workout_dependencies.dart';
 import '../entities/workout.dart';
 import '../repositories/workout_repository.dart';
 
 /// Caso de uso para guardar un entrenamiento completado.
-/// CORRECCIÓN: usa repository.createWorkout() en lugar del eliminado saveWorkout().
-/// El backend acepta un workout con endTime ya incluida en POST /api/workouts.
 class SaveWorkout {
   final WorkoutRepository _repository;
 
@@ -12,7 +11,6 @@ class SaveWorkout {
 
   Future<bool> call(Workout workout) async {
     _validateWorkout(workout);
-    // createWorkout devuelve el Workout creado; si no lanza excepción, fue exitoso
     await _repository.createWorkout(workout);
     WorkoutDependencies.notifyWorkoutSaved();
     return true;
@@ -20,31 +18,35 @@ class SaveWorkout {
 
   void _validateWorkout(Workout workout) {
     if (workout.name.trim().isEmpty) {
-      throw ArgumentError('Workout name cannot be empty');
+      throw const ValidationFailure('El nombre del entrenamiento no puede estar vacío');
     }
     if (workout.userId <= 0) {
-      throw ArgumentError('Valid user ID is required');
+      throw const ValidationFailure('Se requiere un ID de usuario válido');
     }
     if (workout.sets.isEmpty) {
-      throw ArgumentError('Workout must contain at least one set');
+      throw const ValidationFailure('El entrenamiento debe contener al menos una serie');
     }
     if (workout.endTime == null) {
-      throw ArgumentError('Workout must have an end time to be saved');
+      throw const ValidationFailure('El entrenamiento debe tener una hora de finalización');
     }
     if (workout.endTime!.isBefore(workout.startTime)) {
-      throw ArgumentError('Workout end time cannot be before start time');
+      throw const ValidationFailure('La hora de fin no puede ser anterior a la hora de inicio');
     }
     for (final set in workout.sets) {
       if (set.exerciseId <= 0) {
-        throw ArgumentError('Valid exercise ID is required for all sets');
+        throw const ValidationFailure('Cada serie debe tener un ejercicio válido asignado');
       }
-      if (set.weight < 0) throw ArgumentError('Weight cannot be negative');
-      if (set.reps <= 0) throw ArgumentError('Reps must be greater than 0');
+      if (set.weight < 0) {
+        throw const ValidationFailure('El peso no puede ser negativo');
+      }
+      if (set.reps <= 0) {
+        throw const ValidationFailure('Las repeticiones deben ser mayores a 0');
+      }
       if (set.setNumber <= 0) {
-        throw ArgumentError('Set number must be greater than 0');
+        throw const ValidationFailure('El número de serie debe ser mayor a 0');
       }
       if (set.exerciseOrder <= 0) {
-        throw ArgumentError('Exercise order must be greater than 0');
+        throw const ValidationFailure('El orden del ejercicio debe ser mayor a 0');
       }
     }
   }

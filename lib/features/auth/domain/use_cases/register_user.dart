@@ -1,3 +1,4 @@
+import '../../../../core/errors/failures.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
@@ -9,37 +10,41 @@ class RegisterUser {
   const RegisterUser(this._repository);
 
   /// Registra un nuevo usuario y devuelve su entidad de dominio.
-  /// Lanza excepción con mensaje descriptivo si la validación o el registro fallan.
+  /// Lanza [ValidationFailure] con mensaje descriptivo si la validación falla.
   Future<User> call(String username, String email, String password) async {
-    if (username.trim().isEmpty) {
-      throw Exception('Username cannot be empty');
+    final cleanUsername = username.trim();
+    final cleanEmail = email.trim();
+
+    if (cleanUsername.isEmpty) {
+      throw const ValidationFailure('El nombre de usuario no puede estar vacío');
     }
 
-    if (email.trim().isEmpty) {
-      throw Exception('Email cannot be empty');
+    if (cleanUsername.length < 3) {
+      throw const ValidationFailure('El nombre de usuario debe tener al menos 3 caracteres');
     }
 
-    if (password.trim().isEmpty) {
-      throw Exception('Password cannot be empty');
+    if (cleanEmail.isEmpty) {
+      throw const ValidationFailure('El correo electrónico no puede estar vacío');
     }
 
-    if (!_isValidEmail(email)) {
-      throw Exception('Please enter a valid email address');
+    if (!_isValidEmail(cleanEmail)) {
+      throw const ValidationFailure('Introduce un correo electrónico válido (ej. usuario@correo.com)');
     }
 
-    // CORRECCIÓN: el backend exige mínimo 8 caracteres (@Size(min = 8) en UserRegistrationDTO)
-    // El valor anterior de 6 causaba que la validación pasara en Flutter
-    // pero el backend rechazara la petición con 400 Bad Request.
+    if (password.isEmpty) {
+      throw const ValidationFailure('La contraseña no puede estar vacía');
+    }
+
     if (password.length < 8) {
-      throw Exception('Password must be at least 8 characters long');
+      throw const ValidationFailure('La contraseña debe tener al menos 8 caracteres');
     }
 
-    await _repository.register(username, email, password);
+    await _repository.register(cleanUsername, cleanEmail, password);
 
     final user = await _repository.getCurrentUser();
 
     if (user == null) {
-      throw Exception('Failed to retrieve user information after registration');
+      throw const AuthenticationFailure('No se pudo recuperar la información del usuario tras el registro');
     }
 
     return user;

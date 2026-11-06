@@ -1,34 +1,34 @@
+import '../../../../core/errors/failures.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
 
-/// Use case for user login
-/// Handles the business logic for authenticating a user
+/// Caso de uso para el inicio de sesión.
+/// Encapsula la validación y lógica de negocio para autenticar un usuario.
 class LoginUser {
   final AuthRepository _repository;
 
   const LoginUser(this._repository);
 
-  /// Executes the login use case
-  /// Returns the authenticated User on success
-  /// Throws exception on authentication failure
+  /// Ejecuta el caso de uso de login.
+  /// Devuelve el [User] autenticado en caso de éxito.
+  /// Lanza [Failure] con mensaje descriptivo si falla.
   Future<User> call(String username, String password) async {
-    // Validate input parameters
-    if (username.trim().isEmpty) {
-      throw Exception('Username or email cannot be empty');
+    final cleanUsername = username.trim();
+
+    if (cleanUsername.isEmpty) {
+      throw const ValidationFailure('Introduce tu nombre de usuario o correo electrónico');
     }
 
-    if (password.trim().isEmpty) {
-      throw Exception('Password cannot be empty');
+    if (password.isEmpty) {
+      throw const ValidationFailure('Introduce tu contraseña');
     }
 
-    // Perform login through repository
-    await _repository.login(username, password);
+    await _repository.login(cleanUsername, password);
 
-    // Get the current user after successful login
     final user = await _repository.getCurrentUser();
 
     if (user == null) {
-      throw Exception('Failed to retrieve user information after login');
+      throw const AuthenticationFailure('No se pudo recuperar la información del usuario tras iniciar sesión');
     }
 
     return user;
