@@ -6,6 +6,7 @@ import '../../domain/entities/exercise.dart';
 import '../../domain/entities/routine.dart';
 import '../../domain/entities/workout.dart';
 import '../../workout_dependencies.dart';
+import '../widgets/exercise_media_viewer.dart';
 import 'exercise_selection_screen.dart';
 
 // ── Local state models ────────────────────────────────────────────────────────
@@ -704,15 +705,30 @@ class _ExerciseCard extends StatelessWidget {
             // ── Header ────────────────────────────────────────────────
             Row(
               children: [
+                ExerciseThumbnail(
+                  exercise: draft.exercise,
+                  size: 36,
+                  onTap: () => showExerciseDetailSheet(
+                    context,
+                    draft.exercise,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    draft.exercise.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blueAccent,
+                  child: GestureDetector(
+                    onTap: () => showExerciseDetailSheet(
+                      context,
+                      draft.exercise,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      draft.exercise.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blueAccent,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 GestureDetector(

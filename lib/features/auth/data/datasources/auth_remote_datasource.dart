@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -50,6 +51,9 @@ abstract class AuthRemoteDatasource {
 
 /// Implementación de AuthRemoteDatasource usando la API HTTP
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
+  static const String _timeoutMessage =
+      'Tiempo de espera agotado al conectar con el servidor. Verifica que el backend esté activo.';
+
   final ApiClient apiClient;
 
   const AuthRemoteDatasourceImpl(this.apiClient);
@@ -75,6 +79,13 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         throw ServerException(
           message: 'No hay conexión a internet disponible. Comprueba tu red.',
           type: ServerErrorType.networkError,
+          details: {'originalError': e.toString()},
+        );
+      } on TimeoutException catch (e) {
+        debugPrint('⏰ AuthDatasource: Tiempo de espera agotado en login: $e');
+        throw ServerException(
+          message: _timeoutMessage,
+          type: ServerErrorType.timeoutError,
           details: {'originalError': e.toString()},
         );
       } on HttpException catch (e) {
@@ -268,11 +279,11 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
 
   bool _shouldRetryError(ServerErrorType errorType) {
     switch (errorType) {
-      case ServerErrorType.serverError:
       case ServerErrorType.serviceUnavailable:
+        return true;
+      case ServerErrorType.serverError:
       case ServerErrorType.timeoutError:
       case ServerErrorType.networkError:
-        return true;
       case ServerErrorType.authentication:
       case ServerErrorType.forbidden:
       case ServerErrorType.notFound:
@@ -363,6 +374,11 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
         message: 'No hay conexión a internet disponible. Comprueba tu red.',
         type: ServerErrorType.networkError,
       );
+    } on TimeoutException {
+      throw const ServerException(
+        message: _timeoutMessage,
+        type: ServerErrorType.timeoutError,
+      );
     } on FormatException {
       throw const ServerException(
         message: 'Formato de respuesta del servidor no válido.',
@@ -411,6 +427,11 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
       throw const ServerException(
         message: 'No hay conexión a internet disponible.',
         type: ServerErrorType.networkError,
+      );
+    } on TimeoutException {
+      throw const ServerException(
+        message: _timeoutMessage,
+        type: ServerErrorType.timeoutError,
       );
     } on FormatException {
       throw const ServerException(

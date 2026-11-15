@@ -12,9 +12,43 @@ import 'package:flutter/foundation.dart';
 ///
 /// Si no se especifica:
 /// - En Web o Desktop (Windows/macOS/Linux) usa 'http://localhost:8080/api'
-/// - En móvil (Android emulador) usa 'http://10.0.2.2:8080/api'
+/// - En Android resuelve automáticamente en orden:
+///   1. 'http://localhost:8080/api' (con `adb reverse tcp:8080 tcp:8080`)
+///   2. 'http://192.168.0.147:8080/api' (IP local del PC en la red LAN/Wi-Fi)
+///   3. 'http://10.0.2.2:8080/api' (emulador Android)
 class ApiConstants {
   static const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+
+  static const String _localApiBaseUrl = 'http://localhost:8080/api';
+  static const String _lanApiBaseUrl = 'http://192.168.0.147:8080/api';
+  static const String _emulatorApiBaseUrl = 'http://10.0.2.2:8080/api';
+
+  /// Candidatos de conexión para Android cuando no se pasa `--dart-define=API_BASE_URL`.
+  static const List<String> androidFallbackBaseUrls = [
+    _localApiBaseUrl,
+    _lanApiBaseUrl,
+    _emulatorApiBaseUrl,
+  ];
+
+  static String? _resolvedAndroidBaseUrl;
+
+  static bool get hasExplicitBaseUrl => _envBaseUrl.isNotEmpty;
+
+  static bool get hasResolvedBaseUrl =>
+      hasExplicitBaseUrl || _resolvedAndroidBaseUrl != null;
+
+  static bool get isUsingAndroidFallback =>
+      !hasExplicitBaseUrl &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android;
+
+  static void setResolvedBaseUrl(String url) {
+    _resolvedAndroidBaseUrl = url;
+  }
+
+  static void resetResolvedBaseUrl() {
+    _resolvedAndroidBaseUrl = null;
+  }
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
@@ -26,11 +60,11 @@ class ApiConstants {
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.linux) {
-      return 'http://localhost:8080/api';
+      return _localApiBaseUrl;
     }
 
-    // Para emulador Android por defecto
-    return 'http://10.0.2.2:8080/api';
+    // En Android usa la URL ya resuelta o localhost como primer candidato de sonda
+    return _resolvedAndroidBaseUrl ?? androidFallbackBaseUrls.first;
   }
 
   // Auth

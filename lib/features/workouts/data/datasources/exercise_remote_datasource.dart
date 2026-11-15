@@ -19,10 +19,10 @@ class ExerciseRemoteDatasourceImpl implements ExerciseRemoteDatasource {
   Future<List<ExerciseDto>> getExercises() async {
     try {
       // El backend devuelve un objeto Page con paginación
-      // Parámetros por defecto: page=0, size=100 para cargar todos de una vez
+      // Parámetros: page=0, size=500 para cargar el catálogo completo de una vez
       final uri = Uri.parse(
         ApiConstants.exercisesEndpoint,
-      ).replace(queryParameters: {'page': '0', 'size': '100'});
+      ).replace(queryParameters: {'page': '0', 'size': '500'});
 
       final response = await apiClient.get(uri);
 

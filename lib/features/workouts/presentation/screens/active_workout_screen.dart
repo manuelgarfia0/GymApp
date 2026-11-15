@@ -9,6 +9,7 @@ import '../../domain/entities/workout.dart';
 import '../../domain/entities/routine.dart';
 import '../../domain/use_cases/save_workout.dart';
 import '../../workout_dependencies.dart';
+import '../widgets/exercise_media_viewer.dart';
 import 'exercise_selection_screen.dart';
 import 'workout_detail_screen.dart';
 
@@ -915,15 +916,30 @@ class _ExerciseCard extends StatelessWidget {
             // ── Exercise header ──────────────────────────────────────────
             Row(
               children: [
+                ExerciseThumbnail(
+                  exercise: activeEx.exercise,
+                  size: 38,
+                  onTap: () => showExerciseDetailSheet(
+                    context,
+                    activeEx.exercise,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    activeEx.exercise.name,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.blueAccent,
+                  child: GestureDetector(
+                    onTap: () => showExerciseDetailSheet(
+                      context,
+                      activeEx.exercise,
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    child: Text(
+                      activeEx.exercise.name,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blueAccent,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 // Notes button

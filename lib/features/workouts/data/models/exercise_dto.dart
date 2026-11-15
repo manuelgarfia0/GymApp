@@ -12,6 +12,8 @@ class ExerciseDto {
   final String? primaryMuscle;
   final String? category; // viene de "equipmentName" en el backend
   final List<String> secondaryMuscles;
+  final String? imageUrl;
+  final String? animationUrl;
 
   const ExerciseDto({
     required this.id,
@@ -20,6 +22,8 @@ class ExerciseDto {
     this.primaryMuscle,
     this.category,
     required this.secondaryMuscles,
+    this.imageUrl,
+    this.animationUrl,
   });
 
   factory ExerciseDto.fromJson(Map<String, dynamic> json) {
@@ -45,6 +49,11 @@ class ExerciseDto {
               .where((s) => s.trim().isNotEmpty)
               .toList() ??
           [],
+
+      imageUrl: json['imageUrl'] as String?,
+      animationUrl:
+          (json['animationUrl'] ?? json['gifUrl'] ?? json['videoUrl'])
+              as String?,
     );
   }
 
@@ -56,6 +65,8 @@ class ExerciseDto {
       if (primaryMuscle != null) 'primaryMuscleName': primaryMuscle,
       if (category != null) 'equipmentName': category,
       'secondaryMuscleNames': secondaryMuscles,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (animationUrl != null) 'animationUrl': animationUrl,
     };
   }
 
@@ -67,6 +78,8 @@ class ExerciseDto {
       category: category,
       primaryMuscle: primaryMuscle,
       secondaryMuscles: List.from(secondaryMuscles),
+      imageUrl: imageUrl,
+      animationUrl: animationUrl,
     );
   }
 
@@ -78,12 +91,21 @@ class ExerciseDto {
         other.name == name &&
         other.description == description &&
         other.category == category &&
-        other.primaryMuscle == primaryMuscle;
+        other.primaryMuscle == primaryMuscle &&
+        other.imageUrl == imageUrl &&
+        other.animationUrl == animationUrl;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, description, category, primaryMuscle);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    category,
+    primaryMuscle,
+    imageUrl,
+    animationUrl,
+  );
 
   @override
   String toString() =>

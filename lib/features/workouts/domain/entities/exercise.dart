@@ -8,6 +8,8 @@ class Exercise {
   category; // Mapea equipment o category del backend con estrategia de fallback
   final String? primaryMuscle;
   final List<String> secondaryMuscles;
+  final String? imageUrl;
+  final String? animationUrl;
 
   const Exercise({
     required this.id,
@@ -16,6 +18,8 @@ class Exercise {
     this.category, // Mapea equipment o category del backend
     this.primaryMuscle,
     required this.secondaryMuscles,
+    this.imageUrl,
+    this.animationUrl,
   });
 
   @override
@@ -27,6 +31,8 @@ class Exercise {
         other.description == description &&
         other.category == category &&
         other.primaryMuscle == primaryMuscle &&
+        other.imageUrl == imageUrl &&
+        other.animationUrl == animationUrl &&
         _listEquals(other.secondaryMuscles, secondaryMuscles);
   }
 
@@ -38,6 +44,8 @@ class Exercise {
       description,
       category,
       primaryMuscle,
+      imageUrl,
+      animationUrl,
       secondaryMuscles.length,
     );
   }
