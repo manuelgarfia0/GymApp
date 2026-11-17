@@ -7,7 +7,9 @@ import '../../../core/errors/failures.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/use_cases/get_current_user_profile.dart';
 import '../domain/use_cases/get_user_stats.dart';
+import '../presentation/widgets/workout_consistency_heatmap.dart';
 import '../profile_dependencies.dart';
+import '../../workouts/presentation/screens/workout_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -208,6 +210,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
+              'Consistency Heatmap (365 days)',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          WorkoutConsistencyHeatmap(
+            volumeByDate: _stats.volumeHistory,
+            workoutsByDate: _stats.workoutsByDate,
+            selectedDay: _selectedDay,
+            activeDaysLastYear: _stats.activeDaysLastYear,
+            longestStreak: _stats.longestStreak,
+            onDaySelected: _selectDay,
+          ),
+          const SizedBox(height: 32),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
               'Training Calendar',
               style: TextStyle(
                 fontSize: 20,
@@ -254,28 +277,111 @@ class _ProfileScreenState extends State<ProfileScreen> {
   );
   }
 
-  Widget _buildWorkoutSummaryCard(ProfileWorkoutSummary workout) {
-    final start = '${workout.startTime.hour.toString().padLeft(2, '0')}:${workout.startTime.minute.toString().padLeft(2, '0')}';
-    final durH = workout.duration.inHours;
-    final durM = workout.duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final durationStr = durH > 0 ? '${durH}h ${durM}m' : '${durM}m';
+  void _selectDay(DateTime day) {
+    final dayKey = DateTime(day.year, day.month, day.day);
+    setState(() {
+      _selectedDay = dayKey;
+      _focusedDay = dayKey;
+      _selectedDayWorkouts = _stats.workoutsByDate[dayKey] ?? [];
+    });
+  }
+
+  String _formatDurationHms(Duration d) {
+    final h = d.inHours.toString().padLeft(2, '0');
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  Widget _buildWorkoutSummaryCard(ProfileWorkoutSummary summary) {
+    final start =
+        '${summary.startTime.hour.toString().padLeft(2, '0')}:${summary.startTime.minute.toString().padLeft(2, '0')}';
+    final durationStr = _formatDurationHms(summary.duration);
+    final prCount = summary.personalRecords.length;
 
     return Card(
-      color: const Color(0xFF2A2A2A),
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ListTile(
-        title: Text(workout.name, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text('Time: $start • Duration: $durationStr', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 2),
-            Text('Exercises: ${workout.exercises.take(3).join(", ")}${workout.exercises.length > 3 ? '...' : ''}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 2),
-            Text('Volume: ${workout.volume.toStringAsFixed(1)} kg', style: const TextStyle(color: Colors.blueAccent, fontSize: 12)),
-          ],
+      color: const Color(0xFF222222),
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: summary.workout == null
+            ? null
+            : () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WorkoutDetailScreen(
+                    workout: summary.workout!,
+                    personalRecords: summary.personalRecords,
+                  ),
+                ),
+              ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      summary.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  if (prCount > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.amber.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: Text(
+                        '🏆 $prCount PR',
+                        style: const TextStyle(
+                          color: Colors.amber,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  if (summary.workout != null)
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF777777),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$start · $durationStr · ${summary.setCount} sets · ${summary.volume.toStringAsFixed(0)} kg',
+                style: const TextStyle(
+                  color: Colors.blueAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (summary.exercises.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${summary.exercises.take(3).join(", ")}${summary.exercises.length > 3 ? ' (+${summary.exercises.length - 3})' : ''}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -290,14 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         lastDay: DateTime.utc(2030, 3, 14),
         focusedDay: _focusedDay,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        onDaySelected: (selectedDay, focusedDay) {
-          setState(() {
-            _selectedDay = selectedDay;
-            _focusedDay = focusedDay;
-            final dayKey = DateTime(selectedDay.year, selectedDay.month, selectedDay.day);
-            _selectedDayWorkouts = _stats.workoutsByDate[dayKey] ?? [];
-          });
-        },
+        onDaySelected: (selectedDay, _) => _selectDay(selectedDay),
         headerStyle: const HeaderStyle(
           formatButtonVisible: false,
           titleCentered: true,

@@ -1,26 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../domain/entities/exercise.dart';
+import '../../domain/entities/personal_record.dart';
 import '../../domain/entities/workout.dart';
+import '../../domain/use_cases/evaluate_personal_records.dart';
+import '../../workout_dependencies.dart';
+import '../widgets/exercise_media_viewer.dart';
 
-class WorkoutDetailScreen extends StatelessWidget {
+class WorkoutDetailScreen extends StatefulWidget {
   final Workout workout;
   final bool isPreview;
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
+  final List<PersonalRecordAchievement> personalRecords;
 
   const WorkoutDetailScreen({
-    super.key, 
+    super.key,
     required this.workout,
     this.isPreview = false,
     this.onConfirm,
     this.onCancel,
+    this.personalRecords = const [],
   });
+
+  @override
+  State<WorkoutDetailScreen> createState() => _WorkoutDetailScreenState();
+}
+
+class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
+  Map<int, Exercise> _exercisesById = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExercisesCatalog();
+  }
+
+  Future<void> _loadExercisesCatalog() async {
+    try {
+      final catalog = await WorkoutDependencies.getExercisesUseCase();
+      if (!mounted) return;
+      setState(() {
+        _exercisesById = {for (final ex in catalog) ex.id: ex};
+      });
+    } catch (_) {
+      // Mantiene datos básicos de fallback si no hay conexión o DI inicializada.
+    }
+  }
+
+  Exercise _resolveExercise(int exerciseId, String name) {
+    return _exercisesById[exerciseId] ??
+        Exercise(
+          id: exerciseId,
+          name: name,
+          description: '',
+          primaryMuscle: '',
+          category: '',
+          secondaryMuscles: const [],
+        );
+  }
 
   List<Map<String, dynamic>> _groupedExercises() {
     final grouped = <int, Map<String, dynamic>>{};
-    for (final set in workout.sets) {
+    for (final set in widget.workout.sets) {
       if (!grouped.containsKey(set.exerciseId)) {
         grouped[set.exerciseId] = {
+          'exerciseId': set.exerciseId,
           'name': set.exerciseName ?? 'Unknown Exercise',
           'notes': '',
           'sets': <WorkoutSet>[],
@@ -36,15 +81,15 @@ class WorkoutDetailScreen extends StatelessWidget {
 
   // Cambio: Mostrar en formato HH:MM:SS
   String _duration() {
-    if (workout.endTime == null) return '--';
-    final d = workout.duration;
+    if (widget.workout.endTime == null) return '--';
+    final d = widget.workout.duration;
     final h = d.inHours.toString().padLeft(2, '0');
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
     return '$h:$m:$s';
   }
 
-  double _totalVolume() => workout.sets
+  double _totalVolume() => widget.workout.sets
       .where((s) => !s.isWarmup)
       .fold(0, (sum, s) => sum + s.weight * s.reps);
 
@@ -58,18 +103,20 @@ class WorkoutDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final grouped = _groupedExercises();
-    final date = DateFormat('EEEE, MMM d, yyyy').format(workout.startTime);
+    final date = DateFormat('EEEE, MMM d, yyyy · HH:mm').format(
+      widget.workout.startTime,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         title: Text(
-          isPreview ? 'Workout Preview' : 'Workout Summary',
+          widget.isPreview ? 'Workout Preview' : 'Workout Summary',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF1E1E1E),
         elevation: 0,
-        leading: isPreview 
+        leading: widget.isPreview
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context, false),
@@ -80,20 +127,20 @@ class WorkoutDetailScreen extends StatelessWidget {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
             color: const Color(0xFF1E1E1E),
             child: Column(
               children: [
                 const Icon(
                   Icons.emoji_events_rounded,
                   color: Colors.amber,
-                  size: 52,
+                  size: 48,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
-                  workout.name,
+                  widget.workout.name,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -103,28 +150,40 @@ class WorkoutDetailScreen extends StatelessWidget {
                 Text(
                   date,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     color: Color(0xFF888888),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _SummaryChip(
-                      icon: Icons.timer_outlined,
-                      label: _duration(),
-                      sublabel: 'Duration',
+                    Expanded(
+                      child: _SummaryChip(
+                        icon: Icons.timer_outlined,
+                        label: _duration(),
+                        sublabel: 'Duration',
+                      ),
                     ),
-                    _SummaryChip(
-                      icon: Icons.repeat_rounded,
-                      label: '${workout.sets.length}',
-                      sublabel: 'Total sets',
+                    Expanded(
+                      child: _SummaryChip(
+                        icon: Icons.fitness_center_rounded,
+                        label: '${grouped.length}',
+                        sublabel: 'Exercises',
+                      ),
                     ),
-                    _SummaryChip(
-                      icon: Icons.monitor_weight_outlined,
-                      label: _volumeLabel(),
-                      sublabel: 'Volume',
+                    Expanded(
+                      child: _SummaryChip(
+                        icon: Icons.repeat_rounded,
+                        label: '${widget.workout.sets.length}',
+                        sublabel: 'Total sets',
+                      ),
+                    ),
+                    Expanded(
+                      child: _SummaryChip(
+                        icon: Icons.monitor_weight_outlined,
+                        label: _volumeLabel(),
+                        sublabel: 'Volume',
+                      ),
                     ),
                   ],
                 ),
@@ -137,18 +196,39 @@ class WorkoutDetailScreen extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              itemCount: grouped.length,
+              itemCount:
+                  grouped.length + (widget.personalRecords.isNotEmpty ? 1 : 0),
               itemBuilder: (context, index) {
-                final ex = grouped[index];
+                if (widget.personalRecords.isNotEmpty && index == 0) {
+                  return _PersonalRecordsBanner(
+                    personalRecords: widget.personalRecords,
+                  );
+                }
+                final groupIndex =
+                    widget.personalRecords.isNotEmpty ? index - 1 : index;
+                final ex = grouped[groupIndex];
+                final exerciseId = ex['exerciseId'] as int;
                 final name = ex['name'] as String;
                 final notes = ex['notes'] as String;
                 final sets = ex['sets'] as List<WorkoutSet>;
-                return _ExerciseCard(name: name, notes: notes, sets: sets);
+                final resolvedExercise = _resolveExercise(exerciseId, name);
+                final prSetNumbers = widget.personalRecords
+                    .where((pr) => pr.exerciseId == exerciseId)
+                    .map((pr) => pr.setNumber)
+                    .toSet();
+                return _ExerciseCard(
+                  exercise: resolvedExercise,
+                  notes: notes,
+                  sets: sets,
+                  prSetNumbers: prSetNumbers,
+                  onTapExercise: () =>
+                      showExerciseDetailSheet(context, resolvedExercise),
+                );
               },
             ),
           ),
 
-          if (isPreview)
+          if (widget.isPreview)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
@@ -162,7 +242,8 @@ class WorkoutDetailScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: onCancel ?? () => Navigator.pop(context, false),
+                        onPressed: widget.onCancel ??
+                            () => Navigator.pop(context, false),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           side: const BorderSide(color: Colors.grey),
@@ -178,7 +259,8 @@ class WorkoutDetailScreen extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: ElevatedButton(
-                        onPressed: onConfirm ?? () => Navigator.pop(context, true),
+                        onPressed: widget.onConfirm ??
+                            () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueAccent,
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -204,19 +286,43 @@ class WorkoutDetailScreen extends StatelessWidget {
 }
 
 class _ExerciseCard extends StatelessWidget {
-  final String name;
+  final Exercise exercise;
   final String notes;
   final List<WorkoutSet> sets;
+  final Set<int> prSetNumbers;
+  final VoidCallback onTapExercise;
 
   const _ExerciseCard({
-    required this.name,
+    required this.exercise,
     required this.notes,
     required this.sets,
+    this.prSetNumbers = const {},
+    required this.onTapExercise,
   });
+
+  double _exerciseVolume() => sets
+      .where((s) => !s.isWarmup)
+      .fold(0, (sum, s) => sum + s.weight * s.reps);
+
+  double _bestEstimated1Rm() {
+    double best = 0;
+    for (final s in sets) {
+      if (s.isWarmup || s.weight <= 0 || s.reps <= 0) continue;
+      final est = EvaluatePersonalRecords.calculateEstimated1Rm(
+        s.weight,
+        s.reps,
+      );
+      if (est > best) best = est;
+    }
+    return best;
+  }
 
   @override
   Widget build(BuildContext context) {
     int workingSetNumber = 0;
+    final volumeStr = _exerciseVolume().toStringAsFixed(0);
+    final best1Rm = _bestEstimated1Rm();
+    final hasAnyPr = prSetNumbers.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -229,17 +335,48 @@ class _ExerciseCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.blueAccent,
-              ),
+            Row(
+              children: [
+                ExerciseThumbnail(
+                  exercise: exercise,
+                  size: 38,
+                  onTap: onTapExercise,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onTapExercise,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exercise.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blueAccent,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${sets.length} series · $volumeStr kg'
+                          '${best1Rm > 0 ? ' · Mejor 1RM ~${best1Rm.round()} kg' : ''}',
+                          style: const TextStyle(
+                            color: Color(0xFF888888),
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (hasAnyPr) const _DetailPrBadge(),
+              ],
             ),
 
             if (notes.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 '📝 $notes',
                 style: const TextStyle(
@@ -252,10 +389,11 @@ class _ExerciseCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            const Row(
+            Row(
               children: [
-                SizedBox(width: 40),
-                Expanded(
+                const SizedBox(width: 38),
+                const Expanded(
+                  flex: 2,
                   child: Text(
                     'KG',
                     textAlign: TextAlign.center,
@@ -267,7 +405,8 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Expanded(
+                const Expanded(
+                  flex: 2,
                   child: Text(
                     'REPS',
                     textAlign: TextAlign.center,
@@ -279,6 +418,20 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                const Expanded(
+                  flex: 2,
+                  child: Text(
+                    '1RM EST.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Color(0xFF666666),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                if (hasAnyPr) const SizedBox(width: 56),
               ],
             ),
             const Divider(color: Color(0xFF2A2A2A)),
@@ -286,10 +439,20 @@ class _ExerciseCard extends StatelessWidget {
             ...sets.map((s) {
               final isWarmup = s.isWarmup;
               if (!isWarmup) workingSetNumber++;
+              final isPr = !isWarmup && prSetNumbers.contains(s.setNumber);
 
-              final weightStr = s.weight == s.weight.toInt()
-                  ? s.weight.toInt().toString()
-                  : s.weight.toString();
+              final weightStr = ExerciseHistoricalBest.formatWeight(s.weight);
+              final est1Rm = isWarmup || s.weight <= 0 || s.reps <= 0
+                  ? 0.0
+                  : EvaluatePersonalRecords.calculateEstimated1Rm(
+                      s.weight,
+                      s.reps,
+                    );
+              final est1RmStr = isWarmup
+                  ? 'Calent.'
+                  : est1Rm > 0
+                  ? '${est1Rm.round()} kg'
+                  : '—';
 
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 5),
@@ -301,11 +464,18 @@ class _ExerciseCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isWarmup
                             ? Colors.orange.withValues(alpha: 0.12)
+                            : isPr
+                            ? Colors.amber.withValues(alpha: 0.16)
                             : const Color(0xFF252525),
                         borderRadius: BorderRadius.circular(6),
                         border: isWarmup
                             ? Border.all(
                                 color: Colors.orange.withValues(alpha: 0.4),
+                                width: 1,
+                              )
+                            : isPr
+                            ? Border.all(
+                                color: Colors.amber.withValues(alpha: 0.65),
                                 width: 1,
                               )
                             : null,
@@ -319,23 +489,26 @@ class _ExerciseCard extends StatelessWidget {
                               )
                             : Text(
                                 '$workingSetNumber',
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: isPr ? Colors.amber : Colors.white,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                 ),
                               ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
 
                     Expanded(
+                      flex: 2,
                       child: Text(
                         weightStr,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isWarmup
                               ? const Color(0xFF888888)
+                              : isPr
+                              ? Colors.amber.shade200
                               : Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -344,18 +517,46 @@ class _ExerciseCard extends StatelessWidget {
                     ),
 
                     Expanded(
+                      flex: 2,
                       child: Text(
                         '${s.reps}',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isWarmup
                               ? const Color(0xFF888888)
+                              : isPr
+                              ? Colors.amber.shade200
                               : Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
                       ),
                     ),
+
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        est1RmStr,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: isWarmup
+                              ? Colors.orange.withValues(alpha: 0.75)
+                              : isPr
+                              ? Colors.amber.shade200
+                              : const Color(0xFF9E9E9E),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+
+                    if (hasAnyPr)
+                      SizedBox(
+                        width: 56,
+                        child: isPr
+                            ? const _DetailPrBadge()
+                            : const SizedBox.shrink(),
+                      ),
                   ],
                 ),
               );
@@ -418,6 +619,160 @@ class _SummaryChip extends StatelessWidget {
           style: const TextStyle(color: Color(0xFF777777), fontSize: 11),
         ),
       ],
+    );
+  }
+}
+
+class _PersonalRecordsBanner extends StatelessWidget {
+  final List<PersonalRecordAchievement> personalRecords;
+
+  const _PersonalRecordsBanner({required this.personalRecords});
+
+  /// Consolida el mejor PR logrado por cada ejercicio dentro de la sesión.
+  List<PersonalRecordAchievement> _bestPerExercise() {
+    final best = <int, PersonalRecordAchievement>{};
+    for (final pr in personalRecords) {
+      final current = best[pr.exerciseId];
+      if (current == null || pr.estimated1Rm >= current.estimated1Rm) {
+        best[pr.exerciseId] = pr;
+      }
+    }
+    return best.values.toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groupedPrs = _bestPerExercise();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.amber.withValues(alpha: 0.16),
+            const Color(0xFF261E0A),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.amber.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.workspace_premium_rounded,
+                color: Colors.amber,
+                size: 22,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '🏆 Nuevos Récords Personales (${groupedPrs.length})',
+                  style: const TextStyle(
+                    color: Colors.amber,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...groupedPrs.map((pr) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      Icons.arrow_upward_rounded,
+                      color: Colors.amber,
+                      size: 15,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                pr.exerciseName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              pr.performanceLabel,
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          pr.improvementLabel,
+                          style: TextStyle(
+                            color: Colors.amber.shade100.withValues(alpha: 0.8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailPrBadge extends StatelessWidget {
+  const _DetailPrBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.amber.withValues(alpha: 0.65),
+          width: 1,
+        ),
+      ),
+      child: const Text(
+        '🏆 PR',
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.amber,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

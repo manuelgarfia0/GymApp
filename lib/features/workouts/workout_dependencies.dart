@@ -14,6 +14,7 @@ import 'domain/repositories/workout_repository.dart';
 import 'domain/use_cases/create_routine.dart';
 import 'domain/use_cases/delete_routine.dart';
 import 'domain/use_cases/delete_workout.dart';
+import 'domain/use_cases/evaluate_personal_records.dart';
 import 'domain/use_cases/get_exercises.dart';
 import 'domain/use_cases/get_routines.dart';
 import 'domain/use_cases/get_workout_history.dart';
@@ -52,6 +53,7 @@ class WorkoutDependencies {
   static DeleteRoutine? _deleteRoutineUseCase;
   static UpdateRoutine? _updateRoutineUseCase;
   static DeleteWorkout? _deleteWorkoutUseCase;
+  static EvaluatePersonalRecords? _evaluatePersonalRecordsUseCase;
   static GetExercises? _getExercisesUseCase;
   static GetRoutines? _getRoutinesUseCase;
   static GetWorkoutHistory? _getWorkoutHistoryUseCase;
@@ -115,6 +117,11 @@ class WorkoutDependencies {
     return _deleteWorkoutUseCase!;
   }
 
+  static EvaluatePersonalRecords get evaluatePersonalRecordsUseCase {
+    _evaluatePersonalRecordsUseCase ??= const EvaluatePersonalRecords();
+    return _evaluatePersonalRecordsUseCase!;
+  }
+
   static GetExercises get getExercisesUseCase {
     _getExercisesUseCase ??= GetExercises(exerciseRepository);
     return _getExercisesUseCase!;
@@ -156,6 +163,7 @@ class WorkoutDependencies {
     _deleteRoutineUseCase = null;
     _updateRoutineUseCase = null;
     _deleteWorkoutUseCase = null;
+    _evaluatePersonalRecordsUseCase = null;
     _getExercisesUseCase = null;
     _getRoutinesUseCase = null;
     _getWorkoutHistoryUseCase = null;

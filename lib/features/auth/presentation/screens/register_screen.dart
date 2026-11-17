@@ -112,10 +112,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.fitness_center,
-                size: 80,
-                color: Colors.blueAccent,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Image.asset(
+                  'assets/images/IconoProgressive.png',
+                  width: 110,
+                  height: 110,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(

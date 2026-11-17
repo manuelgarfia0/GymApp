@@ -1,3 +1,6 @@
+import '../../../workouts/domain/entities/personal_record.dart';
+import '../../../workouts/domain/entities/workout.dart';
+
 class ProfileWorkoutSummary {
   final int id;
   final String name;
@@ -5,6 +8,9 @@ class ProfileWorkoutSummary {
   final Duration duration;
   final double volume;
   final List<String> exercises;
+  final int setCount;
+  final Workout? workout;
+  final List<PersonalRecordAchievement> personalRecords;
 
   const ProfileWorkoutSummary({
     required this.id,
@@ -13,6 +19,9 @@ class ProfileWorkoutSummary {
     required this.duration,
     required this.volume,
     required this.exercises,
+    this.setCount = 0,
+    this.workout,
+    this.personalRecords = const [],
   });
 }
 
@@ -25,6 +34,8 @@ class UserStats {
   final String totalTime;
   final double totalVolume;
   final int currentStreak;
+  final int longestStreak;
+  final int activeDaysLastYear;
   final String mostFrequentExercise;
   final List<DateTime> workoutDates;
   final Map<DateTime, double> volumeHistory;
@@ -35,6 +46,8 @@ class UserStats {
     required this.totalTime,
     required this.totalVolume,
     required this.currentStreak,
+    this.longestStreak = 0,
+    this.activeDaysLastYear = 0,
     required this.mostFrequentExercise,
     required this.workoutDates,
     required this.volumeHistory,
@@ -46,6 +59,8 @@ class UserStats {
     totalTime: '00:00:00',
     totalVolume: 0.0,
     currentStreak: 0,
+    longestStreak: 0,
+    activeDaysLastYear: 0,
     mostFrequentExercise: 'None',
     workoutDates: [],
     volumeHistory: {},

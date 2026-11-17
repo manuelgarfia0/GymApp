@@ -1,3 +1,5 @@
+import java.util.concurrent.TimeUnit
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -43,4 +45,35 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+tasks.register("setupAdbReverse") {
+    description = "Configures adb reverse tcp:8080 tcp:8080 for connected USB Android devices."
+    outputs.upToDateWhen { false }
+    val adbProvider = androidComponents.sdkComponents.adb
+    doLast {
+        runCatching {
+            val adbExe = adbProvider.get().asFile.absolutePath
+            val devicesProc = ProcessBuilder(adbExe, "devices")
+                .redirectErrorStream(true)
+                .start()
+            val devicesOut = devicesProc.inputStream.bufferedReader().readText()
+            devicesProc.waitFor(3, TimeUnit.SECONDS)
+
+            devicesOut.lineSequence()
+                .map { it.trim().split(Regex("\\s+")) }
+                .filter { parts -> parts.size >= 2 && parts[1] == "device" }
+                .map { parts -> parts[0] }
+                .forEach { serial ->
+                    ProcessBuilder(adbExe, "-s", serial, "reverse", "tcp:8080", "tcp:8080")
+                        .redirectErrorStream(true)
+                        .start()
+                        .waitFor(3, TimeUnit.SECONDS)
+                }
+        }
+    }
+}
+
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn("setupAdbReverse")
 }

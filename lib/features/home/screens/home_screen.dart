@@ -6,7 +6,9 @@ import '../../workouts/presentation/screens/routines_screen.dart';
 import '../../workouts/presentation/screens/workout_detail_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../workouts/workout_dependencies.dart';
+import '../../workouts/domain/entities/personal_record.dart';
 import '../../workouts/domain/entities/workout.dart';
+import '../../workouts/domain/use_cases/evaluate_personal_records.dart';
 import '../../../core/di/core_dependencies.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -151,6 +153,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
 // ── Workout history tab ──────────────────────────────────────────────────────
 
+class _WorkoutHistoryData {
+  final List<Workout> workouts;
+  final Map<int, List<PersonalRecordAchievement>> prsByWorkout;
+
+  const _WorkoutHistoryData({
+    required this.workouts,
+    required this.prsByWorkout,
+  });
+}
+
 class _WorkoutHistoryTab extends StatefulWidget {
   const _WorkoutHistoryTab({super.key});
 
@@ -159,7 +171,7 @@ class _WorkoutHistoryTab extends StatefulWidget {
 }
 
 class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
-  late Future<List<Workout>> _futureWorkouts;
+  late Future<_WorkoutHistoryData> _futureHistory;
 
   @override
   void initState() {
@@ -168,13 +180,21 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
   }
 
   void _load() {
-    _futureWorkouts = _fetchWorkouts();
+    _futureHistory = _fetchHistory();
   }
 
-  Future<List<Workout>> _fetchWorkouts() async {
+  Future<_WorkoutHistoryData> _fetchHistory() async {
     final userId = await CoreDependencies.sessionService.getUserId();
-    if (userId == null || userId <= 0) return [];
-    return WorkoutDependencies.getWorkoutHistoryUseCase(userId);
+    if (userId == null || userId <= 0) {
+      return const _WorkoutHistoryData(workouts: [], prsByWorkout: {});
+    }
+    final workouts = await WorkoutDependencies.getWorkoutHistoryUseCase(userId);
+    final prsByWorkout = WorkoutDependencies.evaluatePersonalRecordsUseCase
+        .evaluateHistoryByWorkout(workouts);
+    return _WorkoutHistoryData(
+      workouts: workouts,
+      prsByWorkout: prsByWorkout,
+    );
   }
 
   @override
@@ -199,8 +219,8 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
               ),
             ),
           ),
-          FutureBuilder<List<Workout>>(
-            future: _futureWorkouts,
+          FutureBuilder<_WorkoutHistoryData>(
+            future: _futureHistory,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
@@ -210,7 +230,9 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                 );
               }
 
-              final workouts = snapshot.data ?? [];
+              final historyData = snapshot.data ??
+                  const _WorkoutHistoryData(workouts: [], prsByWorkout: {});
+              final workouts = historyData.workouts;
 
               if (workouts.isEmpty) {
                 return const SliverFillRemaining(child: _EmptyHistory());
@@ -220,19 +242,28 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: _WorkoutCard(
-                        workout: workouts[index],
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                WorkoutDetailScreen(workout: workouts[index]),
+                    (context, index) {
+                      final workout = workouts[index];
+                      final prs = historyData.prsByWorkout[
+                              EvaluatePersonalRecords.workoutKey(workout)] ??
+                          const <PersonalRecordAchievement>[];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 14),
+                        child: _WorkoutCard(
+                          workout: workout,
+                          personalRecordsCount: prs.length,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => WorkoutDetailScreen(
+                                workout: workout,
+                                personalRecords: prs,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                     childCount: workouts.length,
                   ),
                 ),
@@ -249,12 +280,18 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
 
 class _WorkoutCard extends StatelessWidget {
   final Workout workout;
+  final int personalRecordsCount;
   final VoidCallback onTap;
 
-  const _WorkoutCard({required this.workout, required this.onTap});
+  const _WorkoutCard({
+    required this.workout,
+    this.personalRecordsCount = 0,
+    required this.onTap,
+  });
 
-  double get _totalVolume =>
-      workout.sets.fold(0, (sum, s) => sum + (s.weight * s.reps));
+  double get _totalVolume => workout.sets
+      .where((s) => !s.isWarmup)
+      .fold(0, (sum, s) => sum + (s.weight * s.reps));
 
   int get _exerciseCount =>
       workout.sets.map((s) => s.exerciseId).toSet().length;
@@ -329,6 +366,14 @@ class _WorkoutCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (personalRecordsCount > 0) ...[
+                    _Pill(
+                      label: '🏆 $personalRecordsCount PR',
+                      bgColor: Colors.amber.withValues(alpha: 0.16),
+                      textColor: Colors.amber,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   const Icon(
                     Icons.chevron_right_rounded,
                     color: Color(0xFF555555),
