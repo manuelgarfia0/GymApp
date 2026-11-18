@@ -11,9 +11,21 @@ class RegisterUser {
 
   /// Registra un nuevo usuario y devuelve su entidad de dominio.
   /// Lanza [ValidationFailure] con mensaje descriptivo si la validación falla.
-  Future<User> call(String username, String email, String password) async {
+  Future<User> call(
+    String username,
+    String email,
+    String password, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? languagePreference,
+  }) async {
     final cleanUsername = username.trim();
     final cleanEmail = email.trim();
+    final cleanFirstName = firstName?.trim();
+    final cleanLastName = lastName?.trim();
+    final cleanDateOfBirth = dateOfBirth?.trim();
+    final cleanLanguage = languagePreference?.trim().toLowerCase();
 
     if (cleanUsername.isEmpty) {
       throw const ValidationFailure('El nombre de usuario no puede estar vacío');
@@ -39,7 +51,15 @@ class RegisterUser {
       throw const ValidationFailure('La contraseña debe tener al menos 8 caracteres');
     }
 
-    await _repository.register(cleanUsername, cleanEmail, password);
+    await _repository.register(
+      cleanUsername,
+      cleanEmail,
+      password,
+      firstName: cleanFirstName,
+      lastName: cleanLastName,
+      dateOfBirth: cleanDateOfBirth,
+      languagePreference: cleanLanguage,
+    );
 
     final user = await _repository.getCurrentUser();
 

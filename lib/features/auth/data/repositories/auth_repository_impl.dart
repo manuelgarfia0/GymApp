@@ -47,12 +47,24 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<String> register(
     String username,
     String email,
-    String password,
-  ) async {
+    String password, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? languagePreference,
+  }) async {
     try {
       _validateRegistration(username, email, password);
 
-      final token = await remoteDatasource.register(username, email, password);
+      final token = await remoteDatasource.register(
+        username,
+        email,
+        password,
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: dateOfBirth,
+        languagePreference: languagePreference,
+      );
       await storageService.saveToken(token);
 
       return token;

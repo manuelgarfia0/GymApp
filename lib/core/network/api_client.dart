@@ -20,6 +20,7 @@ import 'api_constants.dart';
 /// text/plain y la comprobación en [send] llega demasiado tarde.
 class ApiClient extends http.BaseClient {
   static const Duration _defaultTimeout = Duration(seconds: 8);
+  static const Duration _remoteTimeout = Duration(seconds: 35);
   static const Duration _probeTimeout = Duration(seconds: 5);
 
   final http.Client _inner = http.Client();
@@ -78,8 +79,11 @@ class ApiClient extends http.BaseClient {
   }
 
   Future<http.StreamedResponse> _sendSingle(http.BaseRequest request) async {
+    final timeout = ApiConstants.hasExplicitBaseUrl
+        ? _remoteTimeout
+        : _defaultTimeout;
     try {
-      final response = await _inner.send(request).timeout(_defaultTimeout);
+      final response = await _inner.send(request).timeout(timeout);
       debugPrint('🌐 API Response: ${response.statusCode} — ${request.url}');
       return response;
     } on SocketException catch (e) {

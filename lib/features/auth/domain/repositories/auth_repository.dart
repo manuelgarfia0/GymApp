@@ -11,7 +11,15 @@ abstract class AuthRepository {
   /// Registers a new user account
   /// Returns JWT token on successful registration
   /// Throws exception on registration failure
-  Future<String> register(String username, String email, String password);
+  Future<String> register(
+    String username,
+    String email,
+    String password, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? languagePreference,
+  });
 
   /// Logs out the current user
   /// Clears stored authentication token

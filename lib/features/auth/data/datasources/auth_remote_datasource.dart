@@ -45,7 +45,15 @@ class ServerException implements Exception {
 /// Interfaz abstracta para la fuente de datos remota de autenticación
 abstract class AuthRemoteDatasource {
   Future<String> login(String username, String password);
-  Future<String> register(String username, String email, String password);
+  Future<String> register(
+    String username,
+    String email,
+    String password, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? languagePreference,
+  });
   Future<UserDto> getCurrentUser();
 }
 
@@ -300,8 +308,12 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   Future<String> register(
     String username,
     String email,
-    String password,
-  ) async {
+    String password, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? languagePreference,
+  }) async {
     try {
       final response = await apiClient.post(
         Uri.parse(ApiConstants.registerEndpoint),
@@ -309,6 +321,12 @@ class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
           'username': username,
           'email': email,
           'password': password,
+          if (firstName != null && firstName.isNotEmpty) 'firstName': firstName,
+          if (lastName != null && lastName.isNotEmpty) 'lastName': lastName,
+          if (dateOfBirth != null && dateOfBirth.isNotEmpty)
+            'dateOfBirth': dateOfBirth,
+          if (languagePreference != null && languagePreference.isNotEmpty)
+            'languagePreference': languagePreference,
         }),
       );
 

@@ -52,7 +52,7 @@ class ApiConstants {
 
   static String get baseUrl {
     if (_envBaseUrl.isNotEmpty) {
-      return _envBaseUrl;
+      return _normalizeBaseUrl(_envBaseUrl);
     }
 
     // En navegador web o en aplicaciones de escritorio, el backend local está en localhost
@@ -65,6 +65,12 @@ class ApiConstants {
 
     // En Android usa la URL ya resuelta o localhost como primer candidato de sonda
     return _resolvedAndroidBaseUrl ?? androidFallbackBaseUrls.first;
+  }
+
+  static String _normalizeBaseUrl(String raw) {
+    final trimmed = raw.trim().replaceAll(RegExp(r'/+$'), '');
+    if (trimmed.isEmpty) return _localApiBaseUrl;
+    return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
   }
 
   // Auth

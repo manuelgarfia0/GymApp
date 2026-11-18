@@ -84,6 +84,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  List<Widget> _buildProfileIdentityHeader() {
+    final user = _user!;
+    final fullName = [user.firstName, user.lastName]
+        .where((part) => part != null && part.trim().isNotEmpty)
+        .map((part) => part!.trim())
+        .join(' ');
+    final dob = user.dateOfBirth;
+    final dobLabel = dob != null
+        ? '${dob.day.toString().padLeft(2, '0')}/${dob.month.toString().padLeft(2, '0')}/${dob.year}'
+        : null;
+    final langCode = (user.languagePreference ?? 'es').toLowerCase();
+    final langLabel = langCode == 'en' ? 'English' : 'Español';
+
+    return [
+      if (fullName.isNotEmpty) ...[
+        Text(
+          fullName,
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '@${user.username}',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Colors.blueAccent,
+          ),
+        ),
+      ] else
+        Text(
+          user.username,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      const SizedBox(height: 6),
+      Text(
+        user.email,
+        style: const TextStyle(fontSize: 15, color: Colors.grey),
+      ),
+      const SizedBox(height: 14),
+      _PremiumBadge(isPremium: user.isPremium),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          if (dobLabel != null)
+            _ProfileMetaChip(
+              icon: Icons.cake_outlined,
+              label: dobLabel,
+            ),
+          _ProfileMetaChip(
+            icon: Icons.language_rounded,
+            label: langLabel,
+          ),
+          _ProfileMetaChip(
+            icon: user.publicProfile
+                ? Icons.public_rounded
+                : Icons.lock_outline_rounded,
+            label: user.publicProfile ? 'Perfil público' : 'Perfil privado',
+          ),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -145,21 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Icon(Icons.person, size: 60, color: Colors.white),
           ),
           const SizedBox(height: 16),
-          Text(
-            _user!.username,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _user!.email,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-          _PremiumBadge(isPremium: _user!.isPremium),
+          ..._buildProfileIdentityHeader(),
           const SizedBox(height: 40),
           const Align(
             alignment: Alignment.centerLeft,
@@ -589,6 +650,36 @@ class _StatCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileMetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ProfileMetaChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.blueAccent),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
