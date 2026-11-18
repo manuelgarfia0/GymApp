@@ -328,7 +328,8 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
 
     final workoutsCount = widget.workoutsByDate[selectedDay]?.length ?? 0;
     final volume = volumes[selectedDay] ?? 0;
-    final dateStr = DateFormat('d MMM yyyy').format(selectedDay);
+    final dateStr =
+        '${selectedDay.day} ${WorkoutConsistencyHeatmap._monthAbbr[selectedDay.month - 1]} ${selectedDay.year}';
     final detail = workoutsCount == 0
         ? '$dateStr · Sin actividad'
         : '$dateStr · $workoutsCount entreno${workoutsCount > 1 ? 's' : ''} · ${volume.toStringAsFixed(0)} kg';

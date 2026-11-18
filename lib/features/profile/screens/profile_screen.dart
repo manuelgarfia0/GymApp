@@ -1,9 +1,9 @@
 // lib/features/profile/screens/profile_screen.dart
 import 'package:fl_chart/fl_chart.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter/material.dart';
 import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/use_cases/get_current_user_profile.dart';
 import '../domain/use_cases/get_user_stats.dart';
@@ -27,7 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
-  DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   List<ProfileWorkoutSummary> _selectedDayWorkouts = [];
 
@@ -271,7 +270,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Consistency Heatmap (365 days)',
+              'Mapa muscular',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          AnatomicalMuscleHeatmap(heatmapsByRange: _stats.muscleHeatmaps),
+          const SizedBox(height: 32),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Calendario de actividad (365 días)',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -288,20 +301,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             longestStreak: _stats.longestStreak,
             onDaySelected: _selectDay,
           ),
-          const SizedBox(height: 32),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Training Calendar',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildCalendar(),
           if (_selectedDay != null && _selectedDayWorkouts.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Align(
@@ -342,7 +341,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final dayKey = DateTime(day.year, day.month, day.day);
     setState(() {
       _selectedDay = dayKey;
-      _focusedDay = dayKey;
       _selectedDayWorkouts = _stats.workoutsByDate[dayKey] ?? [];
     });
   }
@@ -443,61 +441,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCalendar() {
-    return Card(
-      color: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: TableCalendar(
-        firstDay: DateTime.utc(2020, 10, 16),
-        lastDay: DateTime.utc(2030, 3, 14),
-        focusedDay: _focusedDay,
-        selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-        onDaySelected: (selectedDay, _) => _selectDay(selectedDay),
-        headerStyle: const HeaderStyle(
-          formatButtonVisible: false,
-          titleCentered: true,
-          titleTextStyle: TextStyle(color: Colors.white, fontSize: 16),
-          leftChevronIcon: Icon(Icons.chevron_left, color: Colors.white),
-          rightChevronIcon: Icon(Icons.chevron_right, color: Colors.white),
-        ),
-        daysOfWeekStyle: const DaysOfWeekStyle(
-          weekdayStyle: TextStyle(color: Colors.blueAccent),
-          weekendStyle: TextStyle(color: Colors.blueAccent),
-        ),
-        calendarStyle: const CalendarStyle(
-          defaultTextStyle: TextStyle(color: Colors.white),
-          weekendTextStyle: TextStyle(color: Colors.white),
-          outsideDaysVisible: false,
-          todayDecoration: BoxDecoration(
-            color: Colors.blueAccent,
-            shape: BoxShape.circle,
-          ),
-        ),
-        calendarBuilders: CalendarBuilders(
-          defaultBuilder: (context, day, focusedDay) {
-            final isWorkoutDay = _stats.workoutDates.any((d) =>
-                d.year == day.year && d.month == day.month && d.day == day.day);
-            if (isWorkoutDay) {
-              return Container(
-                margin: const EdgeInsets.all(4),
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  '${day.day}',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              );
-            }
-            return null;
-          },
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'core/di/core_dependencies.dart';
 import 'core/storage/secure_storage_service.dart';
@@ -15,6 +16,17 @@ class GymApp extends StatelessWidget {
     return MaterialApp(
       title: 'Progressive',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('es', 'ES'),
+      supportedLocales: const [
+        Locale('es', 'ES'),
+        Locale('en', 'GB'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: AppTheme.darkTheme,
       home: const AuthCheckScreen(),
     );

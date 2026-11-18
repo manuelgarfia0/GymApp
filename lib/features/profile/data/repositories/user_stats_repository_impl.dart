@@ -1,21 +1,36 @@
 import '../../domain/use_cases/get_user_stats.dart';
+import '../../../workouts/domain/entities/exercise.dart';
+import '../../../workouts/domain/entities/muscle_heatmap.dart';
+import '../../../workouts/domain/repositories/exercise_repository.dart';
 import '../../../workouts/domain/repositories/workout_repository.dart';
+import '../../../workouts/domain/use_cases/calculate_muscle_heatmap.dart';
 import '../../../workouts/domain/use_cases/evaluate_personal_records.dart';
 
 /// Implementa [UserStatsRepository] consultando [WorkoutRepository].
 class UserStatsRepositoryImpl implements UserStatsRepository {
   final WorkoutRepository _workoutRepository;
+  final ExerciseRepository? _exerciseRepository;
   final EvaluatePersonalRecords _evaluatePersonalRecords;
+  final CalculateMuscleHeatmap _calculateMuscleHeatmap;
 
   const UserStatsRepositoryImpl(
     this._workoutRepository, {
+    ExerciseRepository? exerciseRepository,
     EvaluatePersonalRecords evaluatePersonalRecords =
         const EvaluatePersonalRecords(),
-  }) : _evaluatePersonalRecords = evaluatePersonalRecords;
+    CalculateMuscleHeatmap calculateMuscleHeatmap =
+        const CalculateMuscleHeatmap(),
+  }) : _exerciseRepository = exerciseRepository,
+       _evaluatePersonalRecords = evaluatePersonalRecords,
+       _calculateMuscleHeatmap = calculateMuscleHeatmap;
 
   @override
   Future<UserStats> getStats(int userId) async {
-    final workouts = await _workoutRepository.getUserWorkouts(userId);
+    final workoutsFuture = _workoutRepository.getUserWorkouts(userId);
+    final exercisesFuture = _loadExercisesSafely();
+    final workouts = await workoutsFuture;
+    final exercises = await exercisesFuture;
+
     final completed = workouts.where((w) => w.endTime != null).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
@@ -84,6 +99,23 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
     final activeDaysLastYear =
         distinctDays.where((d) => !d.isBefore(oneYearAgo)).length;
 
+    final exercisesById = <int, Exercise>{
+      for (final ex in exercises) ex.id: ex,
+    };
+    final exercisesByName = <String, Exercise>{
+      for (final ex in exercises) ex.name.trim().toLowerCase(): ex,
+    };
+    final muscleHeatmaps = <MuscleHeatmapRange, MuscleHeatmapData>{
+      for (final range in MuscleHeatmapRange.values)
+        range: _calculateMuscleHeatmap(
+          workouts: completed,
+          exercisesById: exercisesById,
+          exercisesByName: exercisesByName,
+          range: range,
+          referenceDate: now,
+        ),
+    };
+
     return UserStats(
       totalWorkouts: completed.length,
       totalTime: timeLabel,
@@ -95,7 +127,18 @@ class UserStatsRepositoryImpl implements UserStatsRepository {
       workoutDates: dates,
       volumeHistory: volumeHistory,
       workoutsByDate: workoutsByDate,
+      muscleHeatmaps: muscleHeatmaps,
     );
+  }
+
+  Future<List<Exercise>> _loadExercisesSafely() async {
+    final repo = _exerciseRepository;
+    if (repo == null) return const [];
+    try {
+      return await repo.getExercises();
+    } catch (_) {
+      return const [];
+    }
   }
 
   String _findMostFrequentExercise(Map<String, int> counts) {

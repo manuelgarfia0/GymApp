@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/personal_record.dart';
 import '../../domain/entities/workout.dart';
 import '../../domain/entities/routine.dart';
+import '../../domain/use_cases/calculate_muscle_heatmap.dart';
 import '../../domain/use_cases/evaluate_personal_records.dart';
 import '../../domain/use_cases/save_workout.dart';
 import '../../workout_dependencies.dart';
@@ -974,6 +976,137 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
   }
 
+  // ── Live Muscle Heatmap ───────────────────────────────────────────────────
+
+  void _showLiveMuscleHeatmapSheet() {
+    FocusScope.of(context).unfocus();
+    final exercisesById = <int, Exercise>{
+      for (final activeEx in _activeExercises) activeEx.exercise.id: activeEx.exercise,
+    };
+
+    final hasCompletedSets = _activeExercises.any(
+      (ex) => ex.sets.any((s) => !s.isWarmup && s.isCompleted),
+    );
+
+    final sets = <WorkoutSet>[];
+    int exerciseOrder = 1;
+    for (final activeEx in _activeExercises) {
+      int setNumber = 1;
+      for (final s in activeEx.sets) {
+        if (s.isWarmup) continue;
+        if (hasCompletedSets && !s.isCompleted) continue;
+        sets.add(
+          WorkoutSet(
+            exerciseId: activeEx.exercise.id,
+            exerciseName: activeEx.exercise.name,
+            exerciseOrder: exerciseOrder,
+            setNumber: setNumber,
+            weight: s.weight ?? 0,
+            reps: s.reps ?? 0,
+            timestamp: DateTime.now(),
+            isWarmup: false,
+            isCompleted: s.isCompleted,
+          ),
+        );
+        setNumber++;
+      }
+      exerciseOrder++;
+    }
+
+    final tempWorkout = Workout(
+      id: 0,
+      userId: 0,
+      name: _workoutNameController.text.trim().isEmpty
+          ? 'Entrenamiento actual'
+          : _workoutNameController.text.trim(),
+      startTime: DateTime.now(),
+      endTime: DateTime.now(),
+      sets: sets,
+    );
+
+    final liveData = const CalculateMuscleHeatmap()(
+      workouts: [tempWorkout],
+      exercisesById: exercisesById,
+      includeIncompleteSets: !hasCompletedSets,
+    );
+
+    final String subtitle;
+    if (sets.isEmpty) {
+      subtitle =
+          'Añade series o ejercicios para visualizar los músculos trabajados';
+    } else if (hasCompletedSets) {
+      subtitle =
+          'Basado en ${sets.length} ${sets.length == 1 ? 'serie completada' : 'series completadas'}';
+    } else {
+      subtitle =
+          'Vista previa según ${sets.length} ${sets.length == 1 ? 'serie planificada' : 'series planificadas'}';
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF161616),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
+          ),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3A3A3A),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.accessibility_new_rounded,
+                        color: Colors.blueAccent,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Mapa muscular en vivo',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  AnatomicalMuscleHeatmap(
+                    singleData: liveData,
+                    subtitle: subtitle,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── Formatting helpers ────────────────────────────────────────────────────
 
   String _formatTime(int secs) {
@@ -1027,6 +1160,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ),
           backgroundColor: Colors.blueAccent,
           actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.accessibility_new_rounded,
+                color: Colors.white,
+              ),
+              tooltip: 'Mapa muscular en vivo',
+              onPressed: _showLiveMuscleHeatmapSheet,
+            ),
             _isSaving
                 ? const Padding(
                     padding: EdgeInsets.all(16),

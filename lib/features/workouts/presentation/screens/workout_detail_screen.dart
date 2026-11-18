@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../../domain/entities/exercise.dart';
+import '../../domain/entities/muscle_heatmap.dart';
 import '../../domain/entities/personal_record.dart';
 import '../../domain/entities/workout.dart';
+import '../../domain/use_cases/calculate_muscle_heatmap.dart';
 import '../../domain/use_cases/evaluate_personal_records.dart';
 import '../../workout_dependencies.dart';
 import '../widgets/exercise_media_viewer.dart';
@@ -103,6 +106,33 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final grouped = _groupedExercises();
+    final sessionHeatmap = _exercisesById.isEmpty
+        ? MuscleHeatmapData.empty
+        : const CalculateMuscleHeatmap()(
+            workouts: [widget.workout],
+            exercisesById: _exercisesById,
+            includeIncompleteSets: widget.workout.endTime == null,
+          );
+    final leadingWidgets = <Widget>[
+      if (widget.personalRecords.isNotEmpty)
+        _PersonalRecordsBanner(personalRecords: widget.personalRecords),
+      if (!sessionHeatmap.isEmpty) ...[
+        const Text(
+          'Músculos trabajados',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        AnatomicalMuscleHeatmap(
+          singleData: sessionHeatmap,
+          compact: true,
+        ),
+        const SizedBox(height: 16),
+      ],
+    ];
     final date = DateFormat('EEEE, MMM d, yyyy · HH:mm').format(
       widget.workout.startTime,
     );
@@ -196,17 +226,12 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              itemCount:
-                  grouped.length + (widget.personalRecords.isNotEmpty ? 1 : 0),
+              itemCount: leadingWidgets.length + grouped.length,
               itemBuilder: (context, index) {
-                if (widget.personalRecords.isNotEmpty && index == 0) {
-                  return _PersonalRecordsBanner(
-                    personalRecords: widget.personalRecords,
-                  );
+                if (index < leadingWidgets.length) {
+                  return leadingWidgets[index];
                 }
-                final groupIndex =
-                    widget.personalRecords.isNotEmpty ? index - 1 : index;
-                final ex = grouped[groupIndex];
+                final ex = grouped[index - leadingWidgets.length];
                 final exerciseId = ex['exerciseId'] as int;
                 final name = ex['name'] as String;
                 final notes = ex['notes'] as String;

@@ -1,3 +1,4 @@
+import '../../../workouts/domain/entities/muscle_heatmap.dart';
 import '../../../workouts/domain/entities/personal_record.dart';
 import '../../../workouts/domain/entities/workout.dart';
 
@@ -40,6 +41,7 @@ class UserStats {
   final List<DateTime> workoutDates;
   final Map<DateTime, double> volumeHistory;
   final Map<DateTime, List<ProfileWorkoutSummary>> workoutsByDate;
+  final Map<MuscleHeatmapRange, MuscleHeatmapData> muscleHeatmaps;
 
   const UserStats({
     required this.totalWorkouts,
@@ -52,6 +54,7 @@ class UserStats {
     required this.workoutDates,
     required this.volumeHistory,
     required this.workoutsByDate,
+    this.muscleHeatmaps = const {},
   });
 
   static const empty = UserStats(
@@ -65,6 +68,7 @@ class UserStats {
     workoutDates: [],
     volumeHistory: {},
     workoutsByDate: {},
+    muscleHeatmaps: {},
   );
 }
 

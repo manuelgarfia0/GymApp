@@ -55,10 +55,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
+      locale: const Locale('es', 'ES'),
       initialDate: _selectedBirthDate ?? DateTime(now.year - 22, 1, 1),
       firstDate: DateTime(1920),
       lastDate: now,
       helpText: 'Selecciona tu fecha de nacimiento',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(

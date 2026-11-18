@@ -2,8 +2,10 @@ import '../../core/di/core_dependencies.dart';
 import '../../core/network/api_client.dart';
 import '../../core/session/session_service.dart';
 import '../../core/storage/secure_storage_service.dart';
-import '../workouts/data/repositories/workout_repository_impl.dart';
+import '../workouts/data/datasources/exercise_remote_datasource.dart';
 import '../workouts/data/datasources/workout_remote_datasource.dart';
+import '../workouts/data/repositories/exercise_repository_impl.dart';
+import '../workouts/data/repositories/workout_repository_impl.dart';
 import 'data/datasources/profile_remote_datasource.dart';
 import 'data/repositories/profile_repository_impl.dart';
 import 'data/repositories/user_stats_repository_impl.dart';
@@ -43,6 +45,9 @@ class ProfileDependencies {
     _statsRepository ??= UserStatsRepositoryImpl(
       WorkoutRepositoryImpl(
         remoteDatasource: WorkoutRemoteDatasourceImpl(apiClient),
+      ),
+      exerciseRepository: ExerciseRepositoryImpl(
+        remoteDatasource: ExerciseRemoteDatasourceImpl(apiClient),
       ),
     );
     return _statsRepository!;
