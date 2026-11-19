@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/widgets/anatomical_muscle_heatmap.dart';
+import '../../../core/widgets/slow_loading_indicator.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/use_cases/get_current_user_profile.dart';
 import '../domain/use_cases/get_user_stats.dart';
@@ -161,9 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.blueAccent),
-      );
+      return const SlowLoadingIndicator();
     }
 
     // Cambio: el error ahora se muestra inline con un botón Retry visible,

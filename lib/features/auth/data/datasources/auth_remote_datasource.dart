@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import '../../../../core/errors/failures.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/user_dto.dart';
@@ -60,7 +61,7 @@ abstract class AuthRemoteDatasource {
 /// Implementación de AuthRemoteDatasource usando la API HTTP
 class AuthRemoteDatasourceImpl implements AuthRemoteDatasource {
   static const String _timeoutMessage =
-      'Tiempo de espera agotado al conectar con el servidor. Verifica que el backend esté activo.';
+      NetworkFailure.serverWakingTimeoutMessage;
 
   final ApiClient apiClient;
 

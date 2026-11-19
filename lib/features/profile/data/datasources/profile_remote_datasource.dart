@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/api_constants.dart';
 import '../models/user_profile_dto.dart';
@@ -31,6 +33,10 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
       } else {
         throw Exception('Failed to fetch user profile: ${response.statusCode}');
       }
+    } on SocketException {
+      rethrow;
+    } on TimeoutException {
+      rethrow;
     } catch (e) {
       throw Exception('Network error while fetching user profile: $e');
     }
@@ -54,6 +60,10 @@ class ProfileRemoteDatasourceImpl implements ProfileRemoteDatasource {
           'Failed to update user profile: ${response.statusCode}',
         );
       }
+    } on SocketException {
+      rethrow;
+    } on TimeoutException {
+      rethrow;
     } catch (e) {
       throw Exception('Network error while updating user profile: $e');
     }

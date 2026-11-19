@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../domain/entities/workout.dart';
@@ -12,135 +13,106 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
   const WorkoutRepositoryImpl({required this.remoteDatasource});
 
   @override
-  Future<List<Workout>> getUserWorkouts(int userId) async {
-    try {
+  Future<List<Workout>> getUserWorkouts(int userId) {
+    return _execute(() async {
       if (userId <= 0) {
         throw const ValidationFailure('Se requiere un ID de usuario válido');
       }
       final dtos = await remoteDatasource.getUserWorkouts(userId);
       return dtos.map((dto) => dto.toEntity()).toList();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al cargar los entrenamientos');
-    }
+    }, 'Error al cargar los entrenamientos');
   }
 
   @override
-  Future<Workout?> getWorkoutById(int id) async {
-    try {
+  Future<Workout?> getWorkoutById(int id) {
+    return _execute(() async {
       if (id <= 0) {
         throw const ValidationFailure('Se requiere un ID de entrenamiento válido');
       }
       final dto = await remoteDatasource.getWorkoutById(id);
       return dto?.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al cargar el entrenamiento');
-    }
+    }, 'Error al cargar el entrenamiento');
   }
 
   @override
-  Future<Workout> createWorkout(Workout workout) async {
-    try {
+  Future<Workout> createWorkout(Workout workout) {
+    return _execute(() async {
       if (workout.name.trim().isEmpty) {
-        throw const ValidationFailure('El nombre del entrenamiento no puede estar vacío');
+        throw const ValidationFailure(
+          'El nombre del entrenamiento no puede estar vacío',
+        );
       }
       if (workout.userId <= 0) {
         throw const ValidationFailure('Se requiere un ID de usuario válido');
       }
-      final dto = _workoutToDto(workout);
-      final createdDto = await remoteDatasource.createWorkout(dto);
+      final createdDto = await remoteDatasource.createWorkout(
+        _workoutToDto(workout),
+      );
       return createdDto.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al guardar el entrenamiento');
-    }
+    }, 'Error al guardar el entrenamiento');
   }
 
   @override
-  Future<Workout> updateWorkout(Workout workout) async {
-    try {
+  Future<Workout> updateWorkout(Workout workout) {
+    return _execute(() async {
       if (workout.id == null || workout.id! <= 0) {
-        throw const ValidationFailure('Se requiere un ID de entrenamiento válido para actualizar');
+        throw const ValidationFailure(
+          'Se requiere un ID de entrenamiento válido para actualizar',
+        );
       }
       if (workout.name.trim().isEmpty) {
-        throw const ValidationFailure('El nombre del entrenamiento no puede estar vacío');
+        throw const ValidationFailure(
+          'El nombre del entrenamiento no puede estar vacío',
+        );
       }
-      final dto = _workoutToDto(workout);
-      final updatedDto = await remoteDatasource.updateWorkout(dto);
+      final updatedDto = await remoteDatasource.updateWorkout(
+        _workoutToDto(workout),
+      );
       return updatedDto.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al actualizar el entrenamiento');
-    }
+    }, 'Error al actualizar el entrenamiento');
   }
 
   @override
-  Future<bool> deleteWorkout(int id) async {
-    try {
+  Future<bool> deleteWorkout(int id) {
+    return _execute(() async {
       if (id <= 0) {
         throw const ValidationFailure('Se requiere un ID de entrenamiento válido');
       }
       return await remoteDatasource.deleteWorkout(id);
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al eliminar el entrenamiento');
-    }
+    }, 'Error al eliminar el entrenamiento');
   }
 
   @override
-  Future<Workout> endWorkout(int workoutId) async {
-    try {
+  Future<Workout> endWorkout(int workoutId) {
+    return _execute(() async {
       if (workoutId <= 0) {
         throw const ValidationFailure('Se requiere un ID de entrenamiento válido');
       }
       final dto = await remoteDatasource.endWorkout(workoutId);
       return dto.toEntity();
+    }, 'Error al finalizar el entrenamiento');
+  }
+
+  Future<T> _execute<T>(
+    Future<T> Function() action,
+    String fallbackMessage,
+  ) async {
+    try {
+      return await action();
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
+      throw const NetworkFailure(
+        'Tiempo de espera agotado al conectar con el servidor',
+      );
     } on FormatException {
       throw const NetworkFailure('Formato de respuesta del servidor no válido');
     } on ValidationFailure {
       rethrow;
     } catch (e) {
-      throw _mapError(e, 'Error al finalizar el entrenamiento');
+      throw _mapError(e, fallbackMessage);
     }
   }
 
@@ -178,7 +150,9 @@ class WorkoutRepositoryImpl implements WorkoutRepository {
         .trim();
     final msg = raw.toLowerCase();
 
-    if (msg.contains('401') || msg.contains('unauthorized')) {
+    if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+      return const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+    } else if (msg.contains('401') || msg.contains('unauthorized')) {
       return const AuthenticationFailure('Sesión expirada. Por favor, inicia sesión de nuevo');
     } else if (msg.contains('403') || msg.contains('forbidden')) {
       return const AuthenticationFailure('No tienes permisos para realizar esta acción');

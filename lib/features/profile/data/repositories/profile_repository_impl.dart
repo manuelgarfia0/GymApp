@@ -1,5 +1,6 @@
 // lib/features/profile/data/repositories/profile_repository_impl.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../domain/entities/user_profile.dart';
@@ -30,6 +31,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return dto.toEntity();
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException {
       throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
     } on FormatException {
@@ -38,7 +41,9 @@ class ProfileRepositoryImpl implements ProfileRepository {
       rethrow;
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains('401') || msg.contains('unauthorized')) {
+      if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+        throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+      } else if (msg.contains('401') || msg.contains('unauthorized')) {
         throw const AuthenticationFailure('Sesión expirada. Por favor, inicia sesión de nuevo');
       } else if (msg.contains('403') || msg.contains('forbidden')) {
         throw const AuthenticationFailure('No tienes permisos para ver este perfil');
@@ -63,6 +68,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return updated.toEntity();
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException {
       throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
     } on FormatException {
@@ -76,7 +83,9 @@ class ProfileRepositoryImpl implements ProfileRepository {
           .trim();
       final msg = raw.toLowerCase();
 
-      if (msg.contains('401') || msg.contains('unauthorized')) {
+      if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+        throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+      } else if (msg.contains('401') || msg.contains('unauthorized')) {
         throw const AuthenticationFailure('Sesión expirada. Por favor, inicia sesión de nuevo');
       } else if (msg.contains('403') || msg.contains('forbidden')) {
         throw const AuthenticationFailure('No tienes permisos para actualizar este perfil');
@@ -98,6 +107,8 @@ class ProfileRepositoryImpl implements ProfileRepository {
       if (userId == null || userId <= 0) return null;
 
       return await getUserProfile(userId);
+    } on Failure {
+      rethrow;
     } catch (_) {
       return null;
     }

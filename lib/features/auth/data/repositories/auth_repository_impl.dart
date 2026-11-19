@@ -1,5 +1,6 @@
 // lib/features/auth/data/repositories/auth_repository_impl.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -32,6 +33,8 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException catch (e) {
       throw NetworkFailure('Error de conexión: $e');
     } on FormatException {
@@ -72,6 +75,8 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException catch (e) {
       throw NetworkFailure('Error de conexión: $e');
     } on FormatException {
@@ -104,12 +109,17 @@ class AuthRepositoryImpl implements AuthRepository {
       throw _mapServerException(e);
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException catch (e) {
       throw NetworkFailure('Error de conexión: $e');
     } on FormatException {
       throw const NetworkFailure('Formato de respuesta del servidor no válido');
     } catch (e) {
       final msg = e.toString().toLowerCase();
+      if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+        throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+      }
       if (msg.contains('401') || msg.contains('unauthorized')) {
         await storageService.deleteToken();
         throw const AuthenticationFailure('Sesión expirada. Por favor, inicia sesión de nuevo');
@@ -201,7 +211,9 @@ class AuthRepositoryImpl implements AuthRepository {
     final raw = e.toString().replaceFirst(RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'), '').trim();
     final msg = raw.toLowerCase();
 
-    if (msg.contains('401') || msg.contains('unauthorized') || msg.contains('invalid credentials')) {
+    if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+      return const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+    } else if (msg.contains('401') || msg.contains('unauthorized') || msg.contains('invalid credentials')) {
       return AuthenticationFailure(raw.isNotEmpty && !msg.contains('statuscode') ? raw : 'Usuario o contraseña incorrectos');
     } else if (msg.contains('403') || msg.contains('forbidden')) {
       return AuthenticationFailure(raw.isNotEmpty && !msg.contains('statuscode') ? raw : 'Acceso denegado a la cuenta');

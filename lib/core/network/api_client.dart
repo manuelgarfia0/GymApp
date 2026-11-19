@@ -20,13 +20,26 @@ import 'api_constants.dart';
 /// text/plain y la comprobación en [send] llega demasiado tarde.
 class ApiClient extends http.BaseClient {
   static const Duration _defaultTimeout = Duration(seconds: 8);
-  static const Duration _remoteTimeout = Duration(seconds: 35);
+  static const Duration _remoteTimeout = Duration(seconds: 120);
   static const Duration _probeTimeout = Duration(seconds: 5);
 
   final http.Client _inner = http.Client();
   final SecureStorageService _storageService;
 
   ApiClient(this._storageService);
+
+  /// Envía un ping ligero en segundo plano al backend remoto para iniciar
+  /// su despertar en frío sin bloquear ni lanzar errores hacia la UI.
+  Future<void> warmUpServer() async {
+    if (!ApiConstants.hasExplicitBaseUrl) return;
+    try {
+      await _inner
+          .get(Uri.parse(ApiConstants.pingEndpoint))
+          .timeout(_remoteTimeout);
+    } catch (_) {
+      // Silencioso por diseño: solo intenta despertar el servidor remoto.
+    }
+  }
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {

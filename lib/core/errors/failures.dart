@@ -43,6 +43,9 @@ class AuthenticationFailure extends Failure {
 
 /// Fallo relacionado con conectividad de red y comunicación con el servidor
 class NetworkFailure extends Failure {
+  static const String serverWakingTimeoutMessage =
+      'El servidor está tardando en responder (puede estar arrancando). Pulsa Reintentar en unos segundos.';
+
   const NetworkFailure(super.message);
 
   /// Instancias comunes de fallos de red

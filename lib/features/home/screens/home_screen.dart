@@ -10,6 +10,8 @@ import '../../workouts/domain/entities/personal_record.dart';
 import '../../workouts/domain/entities/workout.dart';
 import '../../workouts/domain/use_cases/evaluate_personal_records.dart';
 import '../../../core/di/core_dependencies.dart';
+import '../../../core/errors/failures.dart';
+import '../../../core/widgets/slow_loading_indicator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -224,8 +226,61 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: SlowLoadingIndicator(),
+                );
+              }
+
+              if (snapshot.hasError) {
+                final error = snapshot.error;
+                final message = error is Failure
+                    ? error.message
+                    : 'No se pudo cargar el historial. Inténtalo de nuevo.';
+                return SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Center(
-                    child: CircularProgressIndicator(color: Colors.blueAccent),
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.wifi_off_rounded,
+                            size: 48,
+                            color: Colors.blueAccent,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Could not load workout history',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            message,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton.icon(
+                            onPressed: () => setState(() => _load()),
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 );
               }

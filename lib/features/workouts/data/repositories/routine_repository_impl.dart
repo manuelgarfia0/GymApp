@@ -1,5 +1,6 @@
 // lib/features/workouts/data/repositories/routine_repository_impl.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../domain/entities/routine.dart';
@@ -20,107 +21,80 @@ class RoutineRepositoryImpl implements RoutineRepository {
   // ── Public API ────────────────────────────────────────────────────────────
 
   @override
-  Future<List<Routine>> getUserRoutines(int userId) async {
-    try {
+  Future<List<Routine>> getUserRoutines(int userId) {
+    return _execute(() async {
       if (userId <= 0) {
         throw const ValidationFailure('Se requiere un ID de usuario válido');
       }
       final dtos = await remoteDatasource.getUserRoutines(userId);
       return dtos.map((d) => d.toEntity()).toList();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al cargar las rutinas');
-    }
+    }, 'Error al cargar las rutinas');
   }
 
   @override
-  Future<Routine?> getRoutineById(int id) async {
-    try {
+  Future<Routine?> getRoutineById(int id) {
+    return _execute(() async {
       if (id <= 0) {
         throw const ValidationFailure('Se requiere un ID de rutina válido');
       }
       final dto = await remoteDatasource.getRoutineById(id);
       return dto?.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al cargar la rutina');
-    }
+    }, 'Error al cargar la rutina');
   }
 
   @override
-  Future<Routine> createRoutine(Routine routine) async {
-    try {
+  Future<Routine> createRoutine(Routine routine) {
+    return _execute(() async {
       _validateRoutine(routine);
-      final dto = _toDto(routine);
-      final created = await remoteDatasource.createRoutine(dto);
+      final created = await remoteDatasource.createRoutine(_toDto(routine));
       return created.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al crear la rutina');
-    }
+    }, 'Error al crear la rutina');
   }
 
   @override
-  Future<Routine> updateRoutine(Routine routine) async {
-    try {
+  Future<Routine> updateRoutine(Routine routine) {
+    return _execute(() async {
       if (routine.id == null || routine.id! <= 0) {
-        throw const ValidationFailure('Se requiere un ID de rutina válido para actualizar');
+        throw const ValidationFailure(
+          'Se requiere un ID de rutina válido para actualizar',
+        );
       }
       _validateRoutine(routine);
-      final dto = _toDto(routine);
-      final updated = await remoteDatasource.updateRoutine(dto);
+      final updated = await remoteDatasource.updateRoutine(_toDto(routine));
       return updated.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No hay conexión a internet disponible');
-    } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
-    } on FormatException {
-      throw const NetworkFailure('Formato de respuesta del servidor no válido');
-    } on ValidationFailure {
-      rethrow;
-    } catch (e) {
-      throw _mapError(e, 'Error al actualizar la rutina');
-    }
+    }, 'Error al actualizar la rutina');
   }
 
   @override
-  Future<bool> deleteRoutine(int id) async {
-    try {
+  Future<bool> deleteRoutine(int id) {
+    return _execute(() async {
       if (id <= 0) {
         throw const ValidationFailure('Se requiere un ID de rutina válido');
       }
       return await remoteDatasource.deleteRoutine(id);
+    }, 'Error al eliminar la rutina');
+  }
+
+  Future<T> _execute<T>(
+    Future<T> Function() action,
+    String fallbackMessage,
+  ) async {
+    try {
+      return await action();
     } on SocketException {
       throw const NetworkFailure('No hay conexión a internet disponible');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException {
-      throw const NetworkFailure('Tiempo de espera agotado al conectar con el servidor');
+      throw const NetworkFailure(
+        'Tiempo de espera agotado al conectar con el servidor',
+      );
     } on FormatException {
       throw const NetworkFailure('Formato de respuesta del servidor no válido');
     } on ValidationFailure {
       rethrow;
     } catch (e) {
-      throw _mapError(e, 'Error al eliminar la rutina');
+      throw _mapError(e, fallbackMessage);
     }
   }
 
@@ -174,7 +148,9 @@ class RoutineRepositoryImpl implements RoutineRepository {
         .trim();
     final msg = raw.toLowerCase();
 
-    if (msg.contains('401') || msg.contains('unauthorized')) {
+    if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+      return const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+    } else if (msg.contains('401') || msg.contains('unauthorized')) {
       return const AuthenticationFailure('Sesión expirada. Por favor, inicia sesión de nuevo');
     } else if (msg.contains('403') || msg.contains('forbidden')) {
       return const AuthenticationFailure('No tienes permisos para realizar esta acción');

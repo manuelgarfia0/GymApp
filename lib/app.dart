@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -49,6 +50,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   void initState() {
     super.initState();
     _storageService = CoreDependencies.storageService;
+    unawaited(CoreDependencies.apiClient.warmUpServer());
     _checkToken();
   }
 

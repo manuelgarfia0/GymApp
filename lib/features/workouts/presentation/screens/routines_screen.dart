@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/widgets/slow_loading_indicator.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/routine.dart';
 import '../../domain/entities/workout.dart';
@@ -374,9 +375,8 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
             // Body
             if (_isLoading)
               const SliverFillRemaining(
-                child: Center(
-                  child: CircularProgressIndicator(color: Colors.blueAccent),
-                ),
+                hasScrollBody: false,
+                child: SlowLoadingIndicator(),
               )
             else if (_error != null)
               SliverFillRemaining(

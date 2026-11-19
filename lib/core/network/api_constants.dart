@@ -73,6 +73,9 @@ class ApiConstants {
     return trimmed.endsWith('/api') ? trimmed : '$trimmed/api';
   }
 
+  // Health / Warm-up
+  static String get pingEndpoint => '$baseUrl/ping';
+
   // Auth
   static String get loginEndpoint => '$baseUrl/auth/login';
   static String get registerEndpoint => '$baseUrl/auth/register';

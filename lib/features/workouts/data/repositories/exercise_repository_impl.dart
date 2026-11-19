@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../domain/entities/exercise.dart';
@@ -14,109 +15,62 @@ class ExerciseRepositoryImpl implements ExerciseRepository {
 
   @override
   Future<List<Exercise>> getExercises() async {
-    try {
-      // Get exercises from remote datasource
-      final exerciseDtos = await remoteDatasource.getExercises();
-
-      // Transform DTOs to entities before returning to domain layer
-      return exerciseDtos.map((dto) => dto.toEntity()).toList();
-    } on SocketException {
-      throw const NetworkFailure('No internet connection available');
-    } on http.ClientException {
-      throw const NetworkFailure(
-        'Request timed out, please check your connection',
-      );
-    } on FormatException {
-      throw const NetworkFailure('Invalid response format from server');
-    } catch (e) {
-      // Check if it's an authentication error
-      final errorMessage = e.toString().toLowerCase();
-      if (errorMessage.contains('401') ||
-          errorMessage.contains('unauthorized')) {
-        throw const AuthenticationFailure(
-          'Session expired, please login again',
-        );
-      } else if (errorMessage.contains('403') ||
-          errorMessage.contains('forbidden')) {
-        throw const AuthenticationFailure(
-          'You are not authorized to perform this action',
-        );
-      } else if (errorMessage.contains('404')) {
-        throw const NetworkFailure('Exercise service not available');
-      } else if (errorMessage.contains('500') ||
-          errorMessage.contains('server')) {
-        throw const NetworkFailure('Server error, please try again later');
-      }
-
-      // Default network failure for unknown errors
-      throw NetworkFailure('Failed to load exercises: ${e.toString()}');
-    }
+    final result = await _execute<List<Exercise>>(
+      () async {
+        final exerciseDtos = await remoteDatasource.getExercises();
+        return exerciseDtos.map((dto) => dto.toEntity()).toList();
+      },
+      fallbackPrefix: 'Failed to load exercises',
+      notFoundMessage: 'Exercise service not available',
+    );
+    return result!;
   }
 
   @override
-  Future<Exercise?> getExerciseById(int id) async {
-    try {
-      // Validate input
-      if (id <= 0) {
-        throw const ValidationFailure('Valid exercise ID is required');
-      }
-
-      // Get exercise from remote datasource
-      final exerciseDto = await remoteDatasource.getExerciseById(id);
-
-      // Transform DTO to entity before returning to domain layer
-      return exerciseDto?.toEntity();
-    } on SocketException {
-      throw const NetworkFailure('No internet connection available');
-    } on http.ClientException {
-      throw const NetworkFailure(
-        'Request timed out, please check your connection',
-      );
-    } on FormatException {
-      throw const NetworkFailure('Invalid response format from server');
-    } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
-    } catch (e) {
-      // Check if it's an authentication error
-      final errorMessage = e.toString().toLowerCase();
-      if (errorMessage.contains('401') ||
-          errorMessage.contains('unauthorized')) {
-        throw const AuthenticationFailure(
-          'Session expired, please login again',
-        );
-      } else if (errorMessage.contains('403') ||
-          errorMessage.contains('forbidden')) {
-        throw const AuthenticationFailure(
-          'You are not authorized to perform this action',
-        );
-      } else if (errorMessage.contains('404')) {
-        // Return null for not found exercises (valid case)
-        return null;
-      } else if (errorMessage.contains('500') ||
-          errorMessage.contains('server')) {
-        throw const NetworkFailure('Server error, please try again later');
-      }
-
-      // Default network failure for unknown errors
-      throw NetworkFailure('Failed to load exercise: ${e.toString()}');
-    }
+  Future<Exercise?> getExerciseById(int id) {
+    return _execute<Exercise?>(
+      () async {
+        if (id <= 0) {
+          throw const ValidationFailure('Valid exercise ID is required');
+        }
+        final exerciseDto = await remoteDatasource.getExerciseById(id);
+        return exerciseDto?.toEntity();
+      },
+      fallbackPrefix: 'Failed to load exercise',
+      nullOnNotFound: true,
+    );
   }
 
   @override
   Future<List<Exercise>> searchExercises(String query) async {
+    final result = await _execute<List<Exercise>>(
+      () async {
+        if (query.trim().isEmpty) {
+          throw const ValidationFailure('Search query cannot be empty');
+        }
+        final exerciseDtos = await remoteDatasource.searchExercises(
+          query.trim(),
+        );
+        return exerciseDtos.map((dto) => dto.toEntity()).toList();
+      },
+      fallbackPrefix: 'Failed to search exercises',
+      notFoundMessage: 'Exercise search service not available',
+    );
+    return result!;
+  }
+
+  Future<T?> _execute<T>(
+    Future<T?> Function() action, {
+    required String fallbackPrefix,
+    String? notFoundMessage,
+    bool nullOnNotFound = false,
+  }) async {
     try {
-      // Validate input
-      if (query.trim().isEmpty) {
-        throw const ValidationFailure('Search query cannot be empty');
-      }
-
-      // Get exercises from remote datasource
-      final exerciseDtos = await remoteDatasource.searchExercises(query.trim());
-
-      // Transform DTOs to entities before returning to domain layer
-      return exerciseDtos.map((dto) => dto.toEntity()).toList();
+      return await action();
     } on SocketException {
       throw const NetworkFailure('No internet connection available');
+    } on TimeoutException {
+      throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
     } on http.ClientException {
       throw const NetworkFailure(
         'Request timed out, please check your connection',
@@ -124,11 +78,13 @@ class ExerciseRepositoryImpl implements ExerciseRepository {
     } on FormatException {
       throw const NetworkFailure('Invalid response format from server');
     } on ValidationFailure {
-      rethrow; // Re-throw validation failures as-is
+      rethrow;
     } catch (e) {
-      // Check if it's an authentication error
       final errorMessage = e.toString().toLowerCase();
-      if (errorMessage.contains('401') ||
+      if (errorMessage.contains('timeout') ||
+          errorMessage.contains('tiempo de espera')) {
+        throw const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+      } else if (errorMessage.contains('401') ||
           errorMessage.contains('unauthorized')) {
         throw const AuthenticationFailure(
           'Session expired, please login again',
@@ -139,14 +95,16 @@ class ExerciseRepositoryImpl implements ExerciseRepository {
           'You are not authorized to perform this action',
         );
       } else if (errorMessage.contains('404')) {
-        throw const NetworkFailure('Exercise search service not available');
+        if (nullOnNotFound) return null;
+        throw NetworkFailure(
+          notFoundMessage ?? 'Exercise service not available',
+        );
       } else if (errorMessage.contains('500') ||
           errorMessage.contains('server')) {
         throw const NetworkFailure('Server error, please try again later');
       }
 
-      // Default network failure for unknown errors
-      throw NetworkFailure('Failed to search exercises: ${e.toString()}');
+      throw NetworkFailure('$fallbackPrefix: ${e.toString()}');
     }
   }
 }
