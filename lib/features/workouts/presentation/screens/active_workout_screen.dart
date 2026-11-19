@@ -1224,6 +1224,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
                   Expanded(
                     child: ReorderableListView.builder(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: const EdgeInsets.only(bottom: 120),
                       buildDefaultDragHandles: false,
                       onReorder: (oldIndex, newIndex) {

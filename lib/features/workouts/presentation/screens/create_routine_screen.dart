@@ -502,6 +502,8 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
             child: _exercises.isEmpty
                 ? _EmptyExercises(onAdd: _navigateToAddExercise)
                 : ReorderableListView.builder(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     buildDefaultDragHandles: false,
                     padding: const EdgeInsets.only(bottom: 20),
                     onReorder: (oldIndex, newIndex) {

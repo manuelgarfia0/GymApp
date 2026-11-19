@@ -588,6 +588,7 @@ class _EditRoutineScreenState extends State<EditRoutineScreen> {
           // ── Exercise list ─────────────────────────────────────────────
           Expanded(
             child: ReorderableListView.builder(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               buildDefaultDragHandles: false,
               padding: const EdgeInsets.only(bottom: 20),
               onReorder: (oldIndex, newIndex) {

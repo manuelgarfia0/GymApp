@@ -258,6 +258,8 @@ class _ExerciseSelectionScreenState extends State<ExerciseSelectionScreen> {
                 }
 
                 return ListView.separated(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   itemCount: _filteredExercises.length,
                   separatorBuilder: (context, index) =>

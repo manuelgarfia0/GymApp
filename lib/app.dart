@@ -12,11 +12,27 @@ import 'features/home/screens/home_screen.dart';
 class GymApp extends StatelessWidget {
   const GymApp({super.key});
 
+  /// Cierra automáticamente el teclado cuando el usuario toca fuera de cualquier
+  /// campo de texto activo (en móvil Flutter no des-enfoca por defecto).
+  static Map<Type, Action<Intent>> get appActions => <Type, Action<Intent>>{
+    ...WidgetsApp.defaultActions,
+    EditableTextTapUpOutsideIntent:
+        CallbackAction<EditableTextTapUpOutsideIntent>(
+      onInvoke: (EditableTextTapUpOutsideIntent intent) {
+        if (intent.focusNode.hasFocus) {
+          intent.focusNode.unfocus();
+        }
+        return null;
+      },
+    ),
+  };
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Progressive',
       debugShowCheckedModeBanner: false,
+      actions: appActions,
       locale: const Locale('es', 'ES'),
       supportedLocales: const [
         Locale('es', 'ES'),
