@@ -13,6 +13,7 @@ import '../../domain/entities/routine.dart';
 import '../../domain/use_cases/calculate_muscle_heatmap.dart';
 import '../../domain/use_cases/evaluate_personal_records.dart';
 import '../../domain/use_cases/save_workout.dart';
+import '../../domain/use_cases/validate_workout_set.dart';
 import '../../workout_dependencies.dart';
 import '../services/rest_timer_notification_service.dart';
 import '../widgets/exercise_media_viewer.dart';
@@ -40,7 +41,7 @@ class ActiveSet {
 
 class ActiveExercise {
   final String id;
-  final Exercise exercise;
+  Exercise exercise;
   final List<ActiveSet> sets;
   int restSeconds;
   String notes;
@@ -89,7 +90,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   bool _isResting = false;
   bool _isRestPaused = false;
   bool _restSoundEnabled = true;
-  bool _askedNotificationPermission = false;
   String? _restExerciseName;
   DateTime? _restEndTime;
 
@@ -121,8 +121,32 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       _initializeFromSelectedExercises();
     }
 
+    if (widget.baseRoutine != null || widget.previousWorkout != null) {
+      _enrichExercisesFromCatalog();
+    }
     _loadHistoricalBests();
     _startWorkoutTimer();
+  }
+
+  Future<void> _enrichExercisesFromCatalog() async {
+    try {
+      final catalog = await WorkoutDependencies.getExercisesUseCase();
+      if (!mounted || catalog.isEmpty) return;
+      final byId = {for (final ex in catalog) ex.id: ex};
+      var updated = false;
+      for (final activeEx in _activeExercises) {
+        final full = byId[activeEx.exercise.id];
+        if (full != null) {
+          activeEx.exercise = full;
+          updated = true;
+        }
+      }
+      if (updated) {
+        setState(() {});
+      }
+    } catch (_) {
+      // Mantiene datos básicos de fallback si falla la carga de catálogo.
+    }
   }
 
   Future<void> _loadHistoricalBests() async {
@@ -314,10 +338,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   Future<void> _publishRestNotificationWithPermission() async {
-    if (!_askedNotificationPermission) {
-      _askedNotificationPermission = true;
-      await _restNotificationService.requestPermission();
-    }
+    await CoreDependencies.permissionsService.requestRequiredPermissions();
     if (!mounted || !_isResting) return;
     await _syncRestNotification();
   }
@@ -485,9 +506,23 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   void _handleSetValuesChanged(int exerciseIndex, int setIndex) {
-    if (_activeExercises[exerciseIndex].sets[setIndex].isCompleted) {
-      setState(() => _recalculateExercisePrs(exerciseIndex));
+    final activeEx = _activeExercises[exerciseIndex];
+    final s = activeEx.sets[setIndex];
+    if (s.isCompleted) {
+      final invalidReason = WorkoutSetValidator.validateForCompletion(
+        weight: s.weight,
+        reps: s.reps,
+        exercise: activeEx.exercise,
+      );
+      setState(() {
+        if (invalidReason != null) {
+          s.isCompleted = false;
+        }
+        _recalculateExercisePrs(exerciseIndex);
+      });
+      return;
     }
+    setState(() {});
   }
 
   void _addSetToExercise(int exerciseIndex) {
@@ -509,6 +544,36 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _toggleSetCompletion(int exerciseIndex, int setIndex) {
     final activeExercise = _activeExercises[exerciseIndex];
     final s = activeExercise.sets[setIndex];
+
+    if (!s.isCompleted) {
+      final validationError = WorkoutSetValidator.validateForCompletion(
+        weight: s.weight,
+        reps: s.reps,
+        exercise: activeExercise.exercise,
+      );
+      if (validationError != null) {
+        HapticFeedback.lightImpact();
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  validationError,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                backgroundColor: Colors.amber,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+        }
+        return;
+      }
+    }
+
     setState(() {
       s.isCompleted = !s.isCompleted;
       _recalculateExercisePrs(exerciseIndex);
@@ -848,7 +913,13 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       bool hasValidSet = false;
 
       for (final s in activeEx.sets) {
-        if (s.isCompleted && s.weight != null && s.reps != null) {
+        final isValid = WorkoutSetValidator.validateForCompletion(
+              weight: s.weight,
+              reps: s.reps,
+              exercise: activeEx.exercise,
+            ) ==
+            null;
+        if (s.isCompleted && isValid) {
           hasValidSet = true;
           setsToSend.add(
             WorkoutSet(
@@ -1558,14 +1629,25 @@ class _ExerciseCard extends StatelessWidget {
             ...List.generate(activeEx.sets.length, (setIndex) {
               final s = activeEx.sets[setIndex];
               final pr = s.prAchievement;
-              final weightStr = (s.weight != null && s.weight! > 0)
+              final isBodyweight = WorkoutSetValidator.isBodyweightExercise(
+                activeEx.exercise,
+              );
+              final weightStr = s.weight != null &&
+                      (s.weight! > 0 || (isBodyweight && s.weight == 0))
                   ? ExerciseHistoricalBest.formatWeight(s.weight!)
                   : '';
               final repsStr = (s.reps != null && s.reps! > 0)
                   ? s.reps!.toString()
                   : '';
+              final canComplete = WorkoutSetValidator.validateForCompletion(
+                    weight: s.weight,
+                    reps: s.reps,
+                    exercise: activeEx.exercise,
+                  ) ==
+                  null;
 
               return Container(
+                key: ValueKey(s.id),
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: pr != null
                     ? const EdgeInsets.fromLTRB(6, 6, 6, 6)
@@ -1719,7 +1801,9 @@ class _ExerciseCard extends StatelessWidget {
                               Icons.check_circle_rounded,
                               color: s.isCompleted
                                   ? Colors.green
-                                  : const Color(0xFF3A3A3A),
+                                  : canComplete
+                                  ? const Color(0xFF5A5A5A)
+                                  : const Color(0xFF2D2D2D),
                               size: 26,
                             ),
                             onPressed: () {

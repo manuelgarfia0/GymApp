@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../auth/presentation/screens/login_screen.dart';
@@ -29,6 +30,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WorkoutDependencies.workoutSavedNotifier.addListener(_onWorkoutSaved);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(
+          CoreDependencies.permissionsService.requestRequiredPermissions(),
+        );
+      }
+    });
   }
 
   @override
@@ -96,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
       await AuthDependencies.repository.logout();
     } catch (_) {
     } finally {
+      CoreDependencies.permissionsService.resetSession();
       if (mounted) {
         Navigator.pushReplacement(
           context,

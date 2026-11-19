@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../home/screens/home_screen.dart';
 import '../../auth_dependencies.dart';
@@ -37,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (mounted) {
+        CoreDependencies.permissionsService.resetSession();
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),

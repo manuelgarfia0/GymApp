@@ -1,6 +1,7 @@
 // lib/core/di/core_dependencies.dart
 
 import '../network/api_client.dart';
+import '../services/app_permissions_service.dart';
 import '../session/session_service.dart';
 import '../storage/secure_storage_service.dart';
 
@@ -15,6 +16,7 @@ class CoreDependencies {
   static ApiClient? _apiClient;
   static SecureStorageService? _storageService;
   static SessionService? _sessionService;
+  static AppPermissionsService? _permissionsService;
 
   /// Instancia compartida del servicio de almacenamiento seguro.
   static SecureStorageService get storageService {
@@ -41,11 +43,18 @@ class CoreDependencies {
     return _sessionService!;
   }
 
+  /// Servicio centralizado de solicitud de permisos en tiempo de ejecución.
+  static AppPermissionsService get permissionsService {
+    _permissionsService ??= AppPermissionsService();
+    return _permissionsService!;
+  }
+
   /// Resetea todas las dependencias core.
   /// Útil en tests y en el logout del usuario.
   static void reset() {
     _apiClient = null;
     _storageService = null;
     _sessionService = null;
+    _permissionsService = null;
   }
 }
