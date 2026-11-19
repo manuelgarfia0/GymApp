@@ -1,0 +1,115 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Build Android Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.5'
+          channel: stable
+          cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Static analysis
+        run: flutter analyze lib/
+
+      - name: Run Flutter tests
+        run: >
+          flutter test
+          test/core/widgets/
+          test/core/services/
+          test/features/profile/
+          test/features/workouts/
+          test/features/auth/presentation/screens/register_calendar_locale_test.dart
+
+      - name: Configure Android release signing (optional)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/upload-keystore.jks
+            printf '%s\n' \
+              "storePassword=${ANDROID_KEYSTORE_PASSWORD}" \
+              "keyPassword=${ANDROID_KEY_PASSWORD}" \
+              "keyAlias=${ANDROID_KEY_ALIAS:-upload}" \
+              "storeFile=upload-keystore.jks" > android/key.properties
+            echo "SIGNING_MODE=persistent-release-keystore" >> "$GITHUB_ENV"
+            echo "Release keystore configured."
+          else
+            echo "SIGNING_MODE=debug-fallback" >> "$GITHUB_ENV"
+            echo "No release keystore secrets set; using debug signingConfig."
+          fi
+
+      - name: Build Android Release APK
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL || secrets.API_BASE_URL || 'https://progressive-api.onrender.com/api' }}
+        run: |
+          flutter build apk --release \
+            --build-name="1.0.${{ github.run_number }}" \
+            --build-number="${{ github.run_number }}" \
+            --dart-define="API_BASE_URL=${API_BASE_URL}"
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/progressive-latest.apk
+
+      - name: Upload APK workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: progressive-android-apk
+          path: build/app/outputs/flutter-apk/progressive-latest.apk
+          retention-days: 14
+
+      - name: Move 'latest' tag to current commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f latest
+          git push origin refs/tags/latest --force
+
+      - name: Publish APK to GitHub Releases (latest)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "Progressive Android APK (v1.0.${{ github.run_number }})"
+          make_latest: true
+          files: build/app/outputs/flutter-apk/progressive-latest.apk
+          body: |
+            Compilación automática generada desde el commit `${{ github.sha }}`.
+
+            - **Versión**: `1.0.${{ github.run_number }}` (`+${{ github.run_number }}`)
+            - **Firma**: `${{ env.SIGNING_MODE }}`
+            - **Descarga directa**: descarga `progressive-latest.apk` abajo e instálalo desde tu móvil.

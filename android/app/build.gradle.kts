@@ -1,3 +1,5 @@
+import java.io.FileInputStream
+import java.util.Properties
 import java.util.concurrent.TimeUnit
 
 plugins {
@@ -6,6 +8,16 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
+}
+val hasReleaseKeystore = keystorePropertiesFile.exists() &&
+    !keystoreProperties.getProperty("storePassword").isNullOrBlank() &&
+    !keystoreProperties.getProperty("keyPassword").isNullOrBlank() &&
+    !keystoreProperties.getProperty("keyAlias").isNullOrBlank()
 
 android {
     namespace = "com.example.gym_app"
@@ -28,11 +40,28 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(
+                    keystoreProperties.getProperty("storeFile", "upload-keystore.jks"),
+                )
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Usa la firma release persistente cuando existe android/key.properties;
+            // en local mantiene debug como fallback para no bloquear compilaciones rápidas.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
@@ -49,6 +78,7 @@ flutter {
 
 tasks.register("setupAdbReverse") {
     description = "Configures adb reverse tcp:8080 tcp:8080 for connected USB Android devices."
+    onlyIf { System.getenv("CI") != "true" }
     outputs.upToDateWhen { false }
     val adbProvider = androidComponents.sdkComponents.adb
     doLast {
