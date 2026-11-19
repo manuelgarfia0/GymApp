@@ -12,7 +12,12 @@ import '../../workouts/domain/entities/workout.dart';
 import '../../workouts/domain/use_cases/evaluate_personal_records.dart';
 import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/settings/app_settings_scope.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/weight_converter.dart';
 import '../../../core/widgets/slow_loading_indicator.dart';
+import '../../settings/presentation/screens/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,39 +61,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
+    final strings = AppStrings.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogContext),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Log out?',
+        title: Text(
+          strings.logoutTitle,
           style: TextStyle(
-            color: Colors.white,
+            color: AppTheme.textPrimary(dialogContext),
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
         ),
-        content: const Text(
-          'Are you sure you want to log out?',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+        content: Text(
+          strings.logoutMessage,
+          style: TextStyle(
+            color: AppTheme.textSecondary(dialogContext),
+            fontSize: 14,
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              strings.cancel,
+              style: TextStyle(color: AppTheme.textSecondary(dialogContext)),
+            ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text(
-              'Log out',
-              style: TextStyle(
+            child: Text(
+              strings.logOut,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -117,17 +129,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+    if (mounted) {
+      setState(() => _profileVersion++);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final bg = AppTheme.scaffoldBg(context);
+    final textPrimary = AppTheme.textPrimary(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: bg,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Progressive',
           style: TextStyle(
-            color: Colors.white,
+            color: textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 22,
             letterSpacing: -0.5,
@@ -135,7 +161,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            key: const Key('home_settings_button'),
+            tooltip: strings.settingsTooltip,
+            icon: Icon(Icons.settings_rounded, color: textPrimary),
+            onPressed: _openSettings,
+          ),
+          IconButton(
+            tooltip: strings.logoutTooltip,
+            icon: Icon(Icons.logout_rounded, color: textPrimary),
             onPressed: _logout,
           ),
         ],
@@ -208,23 +241,83 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
     );
   }
 
+  Future<void> _confirmAndDeleteWorkout(Workout workout) async {
+    final workoutId = workout.id;
+    if (workoutId == null || workoutId <= 0) return;
+
+    final confirmed = await showDeleteWorkoutConfirmDialog(
+      context,
+      workout.name,
+    );
+    if (!confirmed || !mounted) return;
+
+    try {
+      await WorkoutDependencies.deleteWorkoutUseCase(workoutId);
+      WorkoutDependencies.notifyWorkoutSaved();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Entrenamiento eliminado'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+      }
+    } on Failure catch (e) {
+      if (mounted) _showDeleteError(e.message);
+    } catch (e) {
+      final cleanMsg = e
+          .toString()
+          .replaceFirst(
+            RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'),
+            '',
+          )
+          .trim();
+      if (mounted) {
+        _showDeleteError(
+          cleanMsg.isNotEmpty
+              ? cleanMsg
+              : 'No se pudo eliminar el entrenamiento',
+        );
+      }
+    }
+  }
+
+  void _showDeleteError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final textPrimary = AppTheme.textPrimary(context);
+    final textSecondary = AppTheme.textSecondary(context);
+
     return RefreshIndicator(
       color: Colors.blueAccent,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppTheme.cardBg(context),
       onRefresh: () async => setState(() => _load()),
       child: CustomScrollView(
         slivers: [
-          const SliverToBoxAdapter(
+          SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: Text(
-                'Workout History',
+                strings.workoutHistoryTitle,
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: textPrimary,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -259,10 +352,10 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                             color: Colors.blueAccent,
                           ),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             'Could not load workout history',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: textPrimary,
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
                             ),
@@ -271,8 +364,8 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                           const SizedBox(height: 8),
                           Text(
                             message,
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: textSecondary,
                               fontSize: 14,
                             ),
                             textAlign: TextAlign.center,
@@ -281,7 +374,7 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                           ElevatedButton.icon(
                             onPressed: () => setState(() => _load()),
                             icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
+                            label: Text(strings.retry),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueAccent,
                               foregroundColor: Colors.white,
@@ -316,6 +409,9 @@ class _WorkoutHistoryTabState extends State<_WorkoutHistoryTab> {
                         child: _WorkoutCard(
                           workout: workout,
                           personalRecordsCount: prs.length,
+                          onDelete: workout.id != null && workout.id! > 0
+                              ? () => _confirmAndDeleteWorkout(workout)
+                              : null,
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -346,11 +442,13 @@ class _WorkoutCard extends StatelessWidget {
   final Workout workout;
   final int personalRecordsCount;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _WorkoutCard({
     required this.workout,
     this.personalRecordsCount = 0,
     required this.onTap,
+    this.onDelete,
   });
 
   double get _totalVolume => workout.sets
@@ -382,22 +480,23 @@ class _WorkoutCard extends StatelessWidget {
     return DateFormat('MMM d, yyyy · HH:mm').format(d);
   }
 
-  // Cambio: antes abreviaba con "k" a partir de 1000 kg ("1.2k kg").
-  // Ahora muestra siempre el número completo ("1234 kg") para que el
-  // usuario vea el volumen real sin ambigüedad.
-  String get _volumeLabel {
-    final v = _totalVolume;
-    return '${v.toStringAsFixed(0)} kg';
-  }
-
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final volumeLabel = WeightConverter.formatVolume(_totalVolume, unit);
+    final cardBg = AppTheme.cardBg(context);
+    final textPrimary = AppTheme.textPrimary(context);
+    final textSecondary = AppTheme.textSecondary(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: cardBg,
           borderRadius: BorderRadius.circular(18),
+          border: AppTheme.isDark(context)
+              ? null
+              : Border.all(color: AppTheme.borderColor(context)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(18),
@@ -413,18 +512,18 @@ class _WorkoutCard extends StatelessWidget {
                       children: [
                         Text(
                           workout.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: textPrimary,
                           ),
                         ),
                         const SizedBox(height: 3),
                         Text(
                           _date,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF888888),
+                            color: textSecondary,
                           ),
                         ),
                       ],
@@ -438,15 +537,53 @@ class _WorkoutCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                   ],
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: Color(0xFF555555),
-                  ),
+                  if (onDelete != null)
+                    PopupMenuButton<String>(
+                      key: Key('workout_card_menu_${workout.id}'),
+                      icon: Icon(
+                        Icons.more_vert_rounded,
+                        color: textSecondary,
+                        size: 20,
+                      ),
+                      color: AppTheme.elevatedBg(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 28,
+                        minHeight: 28,
+                      ),
+                      onSelected: (value) {
+                        if (value == 'delete') onDelete!();
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.redAccent,
+                                size: 18,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Eliminar entrenamiento',
+                                style: TextStyle(color: Colors.redAccent),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: textSecondary,
+                    ),
                 ],
               ),
 
               const SizedBox(height: 16),
-              const Divider(color: Color(0xFF2A2A2A), height: 1),
+              Divider(color: AppTheme.borderColor(context), height: 1),
               const SizedBox(height: 14),
 
               Row(
@@ -471,7 +608,7 @@ class _WorkoutCard extends StatelessWidget {
                   _VerticalDivider(),
                   _StatItem(
                     icon: Icons.monitor_weight_outlined,
-                    value: _volumeLabel,
+                    value: volumeLabel,
                     label: 'Volume',
                   ),
                 ],
@@ -511,8 +648,8 @@ class _StatItem extends StatelessWidget {
           const SizedBox(height: 5),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppTheme.textPrimary(context),
               fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
@@ -520,7 +657,7 @@ class _StatItem extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF777777), fontSize: 10),
+            style: TextStyle(color: AppTheme.textMuted(context), fontSize: 10),
           ),
         ],
       ),
@@ -534,7 +671,7 @@ class _VerticalDivider extends StatelessWidget {
     return Container(
       width: 1,
       height: 36,
-      color: const Color(0xFF2A2A2A),
+      color: AppTheme.borderColor(context),
       margin: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
@@ -563,8 +700,8 @@ class _ExercisePills extends StatelessWidget {
         ...visible.map(
           (name) => _Pill(
             label: name,
-            bgColor: const Color(0xFF2A2A2A),
-            textColor: const Color(0xFFAAAAAA),
+            bgColor: AppTheme.elevatedBg(context),
+            textColor: AppTheme.textSecondary(context),
           ),
         ),
         if (extra > 0)
@@ -633,18 +770,21 @@ class _EmptyHistory extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'No workouts yet',
               style: TextStyle(
-                color: Colors.white,
+                color: AppTheme.textPrimary(context),
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your completed workouts will appear here.\nHead to Train to get started.',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textSecondary(context),
+                fontSize: 14,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -662,26 +802,30 @@ class _BottomNav extends StatelessWidget {
 
   const _BottomNav({required this.currentIndex, required this.onTap});
 
-  static const _items = [
-    _NavItem(icon: Icons.history_rounded, label: 'History'),
-    _NavItem(icon: Icons.bolt_rounded, label: 'Train'),
-    _NavItem(icon: Icons.person_rounded, label: 'Profile'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final items = [
+      _NavItem(icon: Icons.history_rounded, label: strings.navHistory),
+      _NavItem(icon: Icons.bolt_rounded, label: strings.navWorkouts),
+      _NavItem(icon: Icons.person_rounded, label: strings.navProfile),
+    ];
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF1A1A1A),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A2A), width: 1)),
+      decoration: BoxDecoration(
+        color: AppTheme.navBarBg(context),
+        border: Border(
+          top: BorderSide(color: AppTheme.borderColor(context), width: 1),
+        ),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
           height: 60,
           child: Row(
-            children: List.generate(_items.length, (index) {
+            children: List.generate(items.length, (index) {
               final selected = index == currentIndex;
+              final inactive = AppTheme.textMuted(context);
               return Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -690,23 +834,19 @@ class _BottomNav extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        _items[index].icon,
-                        color: selected
-                            ? Colors.blueAccent
-                            : const Color(0xFF555555),
+                        items[index].icon,
+                        color: selected ? Colors.blueAccent : inactive,
                         size: 24,
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        _items[index].label,
+                        items[index].label,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: selected
                               ? FontWeight.w700
                               : FontWeight.w500,
-                          color: selected
-                              ? Colors.blueAccent
-                              : const Color(0xFF555555),
+                          color: selected ? Colors.blueAccent : inactive,
                         ),
                       ),
                     ],

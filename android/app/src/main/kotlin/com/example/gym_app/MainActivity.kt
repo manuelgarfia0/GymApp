@@ -24,6 +24,7 @@ import android.os.VibratorManager
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -127,6 +128,32 @@ class MainActivity : FlutterActivity() {
                     vibratePattern(longArrayOf(0L, 18L))
                     result.success(null)
                 }
+                "setKeepScreenOn" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    runOnUiThread {
+                        if (enabled) {
+                            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        } else {
+                            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        }
+                    }
+                    result.success(null)
+                }
+                "shareText" -> {
+                    val text = call.argument<String>("text") ?: ""
+                    val subject = call.argument<String>("subject") ?: "Progressive Export"
+                    val mimeType = call.argument<String>("mimeType") ?: "text/plain"
+                    runOnUiThread {
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = mimeType
+                            putExtra(Intent.EXTRA_SUBJECT, subject)
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        }
+                        val chooser = Intent.createChooser(sendIntent, subject)
+                        startActivity(chooser)
+                    }
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -163,6 +190,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         stopNativeTimer(cancelNotif = true)
         unregisterNotificationReceiver()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         methodChannel?.setMethodCallHandler(null)
         methodChannel = null
         super.onDestroy()

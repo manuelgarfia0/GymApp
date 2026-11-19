@@ -3,13 +3,19 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/di/core_dependencies.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/l10n/app_strings.dart';
+import '../../../core/settings/app_settings_scope.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/weight_converter.dart';
 import '../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../../../core/widgets/slow_loading_indicator.dart';
 import '../domain/entities/user_profile.dart';
 import '../domain/use_cases/get_current_user_profile.dart';
 import '../domain/use_cases/get_user_stats.dart';
+import '../presentation/screens/edit_profile_screen.dart';
 import '../presentation/widgets/workout_consistency_heatmap.dart';
 import '../profile_dependencies.dart';
+import '../../settings/presentation/screens/settings_screen.dart';
 import '../../workouts/presentation/screens/workout_detail_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -84,14 +90,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
-  List<Widget> _buildProfileIdentityHeader() {
+  List<Widget> _buildProfileIdentityHeader(
+    BuildContext context,
+    AppStrings strings,
+  ) {
     final user = _user!;
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
     final fullName = [user.firstName, user.lastName]
         .where((part) => part != null && part.trim().isNotEmpty)
         .map((part) => part!.trim())
         .join(' ');
     final dob = user.dateOfBirth;
-    final dobLabel = dob != null
+    final dobLabel = dob != null && user.showDateOfBirth
         ? '${dob.day.toString().padLeft(2, '0')}/${dob.month.toString().padLeft(2, '0')}/${dob.year}'
         : null;
     final langCode = (user.languagePreference ?? 'es').toLowerCase();
@@ -101,10 +112,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (fullName.isNotEmpty) ...[
         Text(
           fullName,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: primaryText,
           ),
           textAlign: TextAlign.center,
         ),
@@ -120,16 +131,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ] else
         Text(
           user.username,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: primaryText,
           ),
         ),
       const SizedBox(height: 6),
       Text(
         user.email,
-        style: const TextStyle(fontSize: 15, color: Colors.grey),
+        style: TextStyle(fontSize: 15, color: secondaryText),
       ),
       const SizedBox(height: 14),
       _PremiumBadge(isPremium: user.isPremium),
@@ -152,15 +163,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: user.publicProfile
                 ? Icons.public_rounded
                 : Icons.lock_outline_rounded,
-            label: user.publicProfile ? 'Perfil público' : 'Perfil privado',
+            label: user.publicProfile
+                ? strings.publicProfileLabel
+                : strings.privateProfileLabel,
+          ),
+          if (!user.showGlobalStats)
+            _ProfileMetaChip(
+              icon: Icons.visibility_off_outlined,
+              label: strings.hiddenStatsLabel,
+            ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 10,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            key: const Key('profile_edit_button'),
+            onPressed: _openEditProfile,
+            icon: const Icon(Icons.edit_outlined, size: 17),
+            label: Text(strings.editProfile),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blueAccent,
+              side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.65)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            ),
+          ),
+          OutlinedButton.icon(
+            key: const Key('profile_settings_button'),
+            onPressed: _openSettings,
+            icon: const Icon(Icons.settings_outlined, size: 17),
+            label: Text(strings.settings),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textPrimary(context),
+              side: BorderSide(color: AppTheme.borderColor(context)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            ),
           ),
         ],
       ),
     ];
   }
 
+  Future<void> _openEditProfile() async {
+    final current = _user;
+    if (current == null) return;
+
+    final updated = await Navigator.push<UserProfile>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          profile: current,
+          updateUserProfileUseCase:
+              ProfileDependencies.updateUserProfileUseCase,
+        ),
+      ),
+    );
+
+    if (updated != null && mounted) {
+      setState(() => _user = updated);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Perfil actualizado correctamente',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+    }
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+    );
+    if (mounted) {
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final strings = AppStrings.of(context);
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
+
     if (_isLoading) {
       return const SlowLoadingIndicator();
     }
@@ -182,14 +283,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               Text(
                 _errorMessage ?? 'Could not load profile.',
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
+                style: TextStyle(color: secondaryText, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry'),
+                label: Text(strings.retry),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
                   foregroundColor: Colors.white,
@@ -203,137 +304,142 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return RefreshIndicator(
       color: Colors.blueAccent,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppTheme.cardBg(context),
       onRefresh: _load,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 24),
-          const CircleAvatar(
-            radius: 50,
-            backgroundColor: Colors.blueAccent,
-            child: Icon(Icons.person, size: 60, color: Colors.white),
-          ),
-          const SizedBox(height: 16),
-          ..._buildProfileIdentityHeader(),
-          const SizedBox(height: 40),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(height: 24),
+            const CircleAvatar(
+              radius: 50,
+              backgroundColor: Colors.blueAccent,
+              child: Icon(Icons.person, size: 60, color: Colors.white),
             ),
-          ),
-          const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _StatCard(
-                title: 'Total Workouts',
-                value: _stats.totalWorkouts.toString(),
-                icon: Icons.fitness_center,
-                color: Colors.blueAccent,
-              ),
-              _StatCard(
-                title: 'Time Trained',
-                value: _stats.totalTime,
-                icon: Icons.timer,
-                color: Colors.greenAccent,
-              ),
-              _StatCard(
-                title: 'Total Volume',
-                value: '${(_stats.totalVolume / 1000).toStringAsFixed(1)}k',
-                icon: Icons.monitor_weight,
-                color: Colors.orangeAccent,
-              ),
-              _StatCard(
-                title: 'Current Streak',
-                value: '${_stats.currentStreak} days',
-                icon: Icons.local_fire_department,
-                color: Colors.redAccent,
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Mapa muscular',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          AnatomicalMuscleHeatmap(heatmapsByRange: _stats.muscleHeatmaps),
-          const SizedBox(height: 32),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Calendario de actividad (365 días)',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          WorkoutConsistencyHeatmap(
-            volumeByDate: _stats.volumeHistory,
-            workoutsByDate: _stats.workoutsByDate,
-            selectedDay: _selectedDay,
-            activeDaysLastYear: _stats.activeDaysLastYear,
-            longestStreak: _stats.longestStreak,
-            onDaySelected: _selectDay,
-          ),
-          if (_selectedDay != null && _selectedDayWorkouts.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Align(
+            ..._buildProfileIdentityHeader(context, strings),
+            const SizedBox(height: 40),
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Workouts',
+                'Dashboard',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white70,
+                  color: primaryText,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            ..._selectedDayWorkouts.map((w) => _buildWorkoutSummaryCard(w)),
-          ],
-          const SizedBox(height: 32),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Volume History',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _StatCard(
+                  title: 'Total Workouts',
+                  value: _stats.totalWorkouts.toString(),
+                  icon: Icons.fitness_center,
+                  color: Colors.blueAccent,
+                ),
+                _StatCard(
+                  title: 'Time Trained',
+                  value: _stats.totalTime,
+                  icon: Icons.timer,
+                  color: Colors.greenAccent,
+                ),
+                _StatCard(
+                  title: 'Total Volume',
+                  value: WeightConverter.formatCompactVolume(
+                    _stats.totalVolume,
+                    unit,
+                  ),
+                  icon: Icons.monitor_weight,
+                  color: Colors.orangeAccent,
+                ),
+                _StatCard(
+                  title: 'Current Streak',
+                  value: '${_stats.currentStreak} days',
+                  icon: Icons.local_fire_department,
+                  color: Colors.redAccent,
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Mapa muscular',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: primaryText,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _buildVolumeChart(),
-        ],
+            const SizedBox(height: 16),
+            AnatomicalMuscleHeatmap(heatmapsByRange: _stats.muscleHeatmaps),
+            const SizedBox(height: 32),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Calendario de actividad (365 días)',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: primaryText,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            WorkoutConsistencyHeatmap(
+              volumeByDate: _stats.volumeHistory,
+              workoutsByDate: _stats.workoutsByDate,
+              selectedDay: _selectedDay,
+              activeDaysLastYear: _stats.activeDaysLastYear,
+              longestStreak: _stats.longestStreak,
+              onDaySelected: _selectDay,
+            ),
+            if (_selectedDay != null && _selectedDayWorkouts.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Workouts',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: secondaryText,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              ..._selectedDayWorkouts.map(
+                (w) => _buildWorkoutSummaryCard(w, unit),
+              ),
+            ],
+            const SizedBox(height: 32),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Volume History',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: primaryText,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildVolumeChart(unit),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   void _selectDay(DateTime day) {
@@ -351,29 +457,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '$h:$m:$s';
   }
 
-  Widget _buildWorkoutSummaryCard(ProfileWorkoutSummary summary) {
+  Widget _buildWorkoutSummaryCard(
+    ProfileWorkoutSummary summary,
+    WeightUnit unit,
+  ) {
     final start =
         '${summary.startTime.hour.toString().padLeft(2, '0')}:${summary.startTime.minute.toString().padLeft(2, '0')}';
     final durationStr = _formatDurationHms(summary.duration);
     final prCount = summary.personalRecords.length;
+    final volumeText = WeightConverter.formatVolume(summary.volume, unit);
 
     return Card(
-      color: const Color(0xFF222222),
+      color: AppTheme.cardBg(context),
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: summary.workout == null
             ? null
-            : () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => WorkoutDetailScreen(
-                    workout: summary.workout!,
-                    personalRecords: summary.personalRecords,
+            : () async {
+                final deleted = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WorkoutDetailScreen(
+                      workout: summary.workout!,
+                      personalRecords: summary.personalRecords,
+                    ),
                   ),
-                ),
-              ),
+                );
+                if (deleted == true && mounted) {
+                  _load();
+                }
+              },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -384,10 +499,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Expanded(
                     child: Text(
                       summary.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
-                        color: Colors.white,
+                        color: AppTheme.textPrimary(context),
                       ),
                     ),
                   ),
@@ -416,15 +531,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(width: 6),
                   ],
                   if (summary.workout != null)
-                    const Icon(
+                    Icon(
                       Icons.chevron_right_rounded,
-                      color: Color(0xFF777777),
+                      color: AppTheme.textSecondary(context),
                     ),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
-                '$start · $durationStr · ${summary.setCount} sets · ${summary.volume.toStringAsFixed(0)} kg',
+                '$start · $durationStr · ${summary.setCount} sets · $volumeText',
                 style: const TextStyle(
                   color: Colors.blueAccent,
                   fontSize: 12,
@@ -435,7 +550,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '${summary.exercises.take(3).join(", ")}${summary.exercises.length > 3 ? ' (+${summary.exercises.length - 3})' : ''}',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(
+                    color: AppTheme.textSecondary(context),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ],
@@ -445,24 +563,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildVolumeChart() {
+  Widget _buildVolumeChart(WeightUnit unit) {
     if (_stats.volumeHistory.isEmpty) {
-      return const Center(child: Text("No volume data yet.", style: TextStyle(color: Colors.grey)));
+      return Center(
+        child: Text(
+          "No volume data yet.",
+          style: TextStyle(color: AppTheme.textSecondary(context)),
+        ),
+      );
     }
 
     final sortedEntries = _stats.volumeHistory.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
-    
+
     final spots = sortedEntries.asMap().entries.map((e) {
-      return FlSpot(e.key.toDouble(), e.value.value);
+      return FlSpot(
+        e.key.toDouble(),
+        WeightConverter.fromKg(e.value.value, unit),
+      );
     }).toList();
 
     return Container(
       height: 250,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardBg(context),
         borderRadius: BorderRadius.circular(12),
+        border: AppTheme.isDark(context)
+            ? null
+            : Border.all(color: AppTheme.borderColor(context)),
       ),
       child: LineChart(
         LineChartData(
@@ -472,10 +601,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 return touchedSpots.map((spot) {
                   final date = sortedEntries[spot.x.toInt()].key;
                   final vol = spot.y;
-                  final dateStr = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                  final dateStr =
+                      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
                   return LineTooltipItem(
-                    '$dateStr\n${vol.toStringAsFixed(1)} kg',
-                    const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    '$dateStr\n${vol.toStringAsFixed(1)} ${unit.label}',
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   );
                 }).toList();
               },
@@ -483,7 +616,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           gridData: const FlGridData(show: false),
           titlesData: FlTitlesData(
-            leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -493,17 +628,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     final date = sortedEntries[index].key;
                     return Padding(
                       padding: const EdgeInsets.only(top: 8.0),
-                      child: Text('${date.day}/${date.month}', style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                      child: Text(
+                        '${date.day}/${date.month}',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary(context),
+                          fontSize: 10,
+                        ),
+                      ),
                     );
                   }
                   return const SizedBox.shrink();
                 },
                 reservedSize: 22,
-                interval: (sortedEntries.length / 5).clamp(1.0, double.infinity).toDouble(),
+                interval: (sortedEntries.length / 5)
+                    .clamp(1.0, double.infinity)
+                    .toDouble(),
               ),
             ),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
           ),
           borderData: FlBorderData(show: false),
           lineBarsData: [
@@ -568,7 +715,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: const Color(0xFF1E1E1E),
+      color: AppTheme.cardBg(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -579,16 +726,19 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: AppTheme.textPrimary(context),
               ),
             ),
             const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.textSecondary(context),
+              ),
             ),
           ],
         ),
@@ -608,9 +758,9 @@ class _ProfileMetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardBg(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -619,7 +769,10 @@ class _ProfileMetaChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textPrimary(context),
+              fontSize: 12,
+            ),
           ),
         ],
       ),

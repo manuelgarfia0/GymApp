@@ -113,4 +113,105 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return null;
     }
   }
+
+  @override
+  Future<void> changePassword(
+    int userId,
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      if (userId <= 0) {
+        throw const ValidationFailure('Se requiere un ID de usuario válido');
+      }
+      await remoteDatasource.changePassword(
+        userId,
+        currentPassword,
+        newPassword,
+      );
+    } on Failure {
+      rethrow;
+    } catch (e) {
+      throw _mapAccountMutationError(
+        e,
+        fallbackMessage: 'Error al cambiar la contraseña',
+        forbiddenMessage: 'No tienes permisos para cambiar esta contraseña',
+      );
+    }
+  }
+
+  @override
+  Future<void> deleteAccount(int userId, String password) async {
+    try {
+      if (userId <= 0) {
+        throw const ValidationFailure('Se requiere un ID de usuario válido');
+      }
+      await remoteDatasource.deleteAccount(userId, password);
+    } on Failure {
+      rethrow;
+    } catch (e) {
+      throw _mapAccountMutationError(
+        e,
+        fallbackMessage: 'Error al eliminar la cuenta',
+        forbiddenMessage: 'No tienes permisos para eliminar esta cuenta',
+      );
+    }
+  }
+
+  Failure _mapAccountMutationError(
+    Object error, {
+    required String fallbackMessage,
+    required String forbiddenMessage,
+  }) {
+    if (error is SocketException) {
+      return const NetworkFailure('No hay conexión a internet disponible');
+    }
+    if (error is TimeoutException) {
+      return const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+    }
+    if (error is http.ClientException) {
+      return const NetworkFailure(
+        'Tiempo de espera agotado al conectar con el servidor',
+      );
+    }
+    if (error is FormatException) {
+      return const NetworkFailure('Formato de respuesta del servidor no válido');
+    }
+
+    final raw = error
+        .toString()
+        .replaceFirst(RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'), '')
+        .trim();
+    final msg = raw.toLowerCase();
+
+    if (msg.contains('timeout') || msg.contains('tiempo de espera')) {
+      return const NetworkFailure(NetworkFailure.serverWakingTimeoutMessage);
+    }
+    if (msg.contains('401') || msg.contains('unauthorized')) {
+      return const AuthenticationFailure(
+        'Sesión expirada. Por favor, inicia sesión de nuevo',
+      );
+    }
+    if (msg.contains('403') || msg.contains('forbidden')) {
+      return AuthenticationFailure(forbiddenMessage);
+    }
+    if (msg.contains('400') || msg.contains('bad request')) {
+      final clean = raw.replaceAll(RegExp(r'\s*\(400\)$'), '').trim();
+      return ValidationFailure(
+        clean.isNotEmpty && !msg.contains('statuscode')
+            ? clean
+            : fallbackMessage,
+      );
+    }
+    if (msg.contains('404')) {
+      return const ValidationFailure('Usuario no encontrado');
+    }
+    if (msg.contains('500') || msg.contains('server')) {
+      return const NetworkFailure(
+        'Error en el servidor. Por favor, inténtalo más tarde',
+      );
+    }
+    final clean = raw.replaceAll(RegExp(r'\s*\(\d{3}\)$'), '').trim();
+    return NetworkFailure(clean.isNotEmpty ? clean : fallbackMessage);
+  }
 }

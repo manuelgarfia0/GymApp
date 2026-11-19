@@ -3,6 +3,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/settings/app_settings_scope.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/weight_converter.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/routine.dart';
 import '../../workout_dependencies.dart';
@@ -31,8 +34,9 @@ class _DraftSet {
         text: reps != null && reps > 0 ? reps.toString() : '',
       );
 
-  double? get weight => double.tryParse(weightCtrl.text);
-  int? get reps => int.tryParse(repsCtrl.text);
+  double? get weight =>
+      double.tryParse(weightCtrl.text.trim().replaceAll(',', '.'));
+  int? get reps => int.tryParse(repsCtrl.text.trim());
 
   void dispose() {
     weightCtrl.dispose();
@@ -302,7 +306,15 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
       return;
     }
 
-    setState(() => _exercises.add(_DraftExercise(exercise: selected)));
+    setState(() {
+      _exercises.add(
+        _DraftExercise(
+          exercise: selected,
+          restSeconds:
+              CoreDependencies.settingsService.settings.defaultRestSeconds,
+        ),
+      );
+    });
   }
 
   // ── Validate & save ───────────────────────────────────────────────────────
@@ -343,6 +355,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
         );
       }
 
+      final unit = CoreDependencies.settingsService.settings.weightUnit;
       final routineExercises = _exercises.asMap().entries.map((entry) {
         final ex = entry.value;
 
@@ -352,9 +365,12 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
         final targetReps = workingSets.isNotEmpty
             ? (workingSets.first.reps ?? 10)
             : (allSets.first.reps ?? 10);
-        final targetWeight = workingSets.isNotEmpty
+        final rawWeight = workingSets.isNotEmpty
             ? workingSets.first.weight
             : allSets.first.weight;
+        final targetWeight = rawWeight != null
+            ? WeightConverter.toKg(rawWeight, unit)
+            : null;
 
         return RoutineExercise(
           exerciseId: ex.exercise.id,
@@ -417,14 +433,20 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppTheme.scaffoldBg(context);
+    final cardBg = AppTheme.cardBg(context);
+    final primaryText = AppTheme.textPrimary(context);
+    final mutedText = AppTheme.textMuted(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: bg,
       appBar: AppBar(
         title: const Text(
           'New Routine',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.blueAccent,
+        foregroundColor: Colors.white,
         actions: [
           _isSaving
               ? const Padding(
@@ -457,7 +479,7 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-            color: const Color(0xFF1A1A1A),
+            color: cardBg,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -465,14 +487,14 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
                   autofocus: true,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: primaryText,
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Routine Name',
-                    hintStyle: TextStyle(color: Color(0xFF555555)),
+                    hintStyle: TextStyle(color: mutedText),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -481,13 +503,13 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                 const SizedBox(height: 4),
                 TextField(
                   controller: _descController,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF888888),
+                    color: AppTheme.textSecondary(context),
                   ),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Description (optional)',
-                    hintStyle: TextStyle(color: Color(0xFF444444)),
+                    hintStyle: TextStyle(color: mutedText),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -547,11 +569,11 @@ class _CreateRoutineScreenState extends State<CreateRoutineScreen> {
                         onRestTimer: () => _showRestPicker(exIndex),
                         dragHandle: ReorderableDragStartListener(
                           index: exIndex,
-                          child: const Padding(
-                            padding: EdgeInsets.all(10),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
                             child: Icon(
                               Icons.drag_handle_rounded,
-                              color: Color(0xFF555555),
+                              color: mutedText,
                               size: 22,
                             ),
                           ),
@@ -592,18 +614,21 @@ class _EmptyExercises extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No exercises yet',
             style: TextStyle(
-              color: Colors.white,
+              color: AppTheme.textPrimary(context),
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Add exercises to build your routine',
-            style: TextStyle(color: Color(0xFF888888), fontSize: 13),
+            style: TextStyle(
+              color: AppTheme.textSecondary(context),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
@@ -655,11 +680,18 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final primaryText = AppTheme.textPrimary(context);
+    final mutedText = AppTheme.textMuted(context);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardBg(context),
         borderRadius: BorderRadius.circular(14),
+        border: AppTheme.isDark(context)
+            ? null
+            : Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -703,7 +735,7 @@ class _ExerciseCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
+                      color: AppTheme.elevatedBg(context),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -717,8 +749,8 @@ class _ExerciseCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           _fmtRest(draft.restSeconds),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: primaryText,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -744,43 +776,43 @@ class _ExerciseCard extends StatelessWidget {
             ),
 
             // ── Column headers ────────────────────────────────────────────
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(
                 children: [
-                  SizedBox(width: 36),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 36),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'KG',
+                      unit.headerLabel,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFF666666),
+                        color: mutedText,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'REPS',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFF666666),
+                        color: mutedText,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  SizedBox(width: 36),
+                  const SizedBox(width: 36),
                 ],
               ),
             ),
 
-            const Divider(color: Color(0xFF2A2A2A), height: 1),
+            Divider(color: AppTheme.borderColor(context), height: 1),
             const SizedBox(height: 6),
 
             // ── Sets ──────────────────────────────────────────────────────
@@ -800,7 +832,7 @@ class _ExerciseCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: s.isWarmup
                               ? Colors.orange.withValues(alpha: 0.15)
-                              : const Color(0xFF2A2A2A),
+                              : AppTheme.elevatedBg(context),
                           borderRadius: BorderRadius.circular(8),
                           border: s.isWarmup
                               ? Border.all(
@@ -818,10 +850,10 @@ class _ExerciseCard extends StatelessWidget {
                                 )
                               : Text(
                                   '${setIndex + 1}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 13,
-                                    color: Colors.white,
+                                    color: primaryText,
                                   ),
                                 ),
                         ),
@@ -858,9 +890,9 @@ class _ExerciseCard extends StatelessWidget {
                       width: 28,
                       child: GestureDetector(
                         onTap: () => onSetOptions(setIndex),
-                        child: const Icon(
+                        child: Icon(
                           Icons.more_horiz_rounded,
-                          color: Color(0xFF555555),
+                          color: mutedText,
                           size: 20,
                         ),
                       ),
@@ -924,15 +956,15 @@ class _SetField extends StatelessWidget {
       style: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        color: accent ?? Colors.white,
+        color: accent ?? AppTheme.textPrimary(context),
       ),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFF444444), fontSize: 15),
+        hintStyle: TextStyle(color: AppTheme.textMuted(context), fontSize: 15),
         filled: true,
         fillColor: accent != null
             ? accent.withValues(alpha: 0.08)
-            : const Color(0xFF252525),
+            : AppTheme.elevatedBg(context),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: accent != null

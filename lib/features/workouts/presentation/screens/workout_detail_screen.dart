@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/settings/app_settings_scope.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/weight_converter.dart';
 import '../../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/muscle_heatmap.dart';
@@ -9,6 +12,64 @@ import '../../domain/use_cases/calculate_muscle_heatmap.dart';
 import '../../domain/use_cases/evaluate_personal_records.dart';
 import '../../workout_dependencies.dart';
 import '../widgets/exercise_media_viewer.dart';
+
+/// Muestra el diálogo de confirmación antes de eliminar definitivamente un
+/// entrenamiento del historial.
+Future<bool> showDeleteWorkoutConfirmDialog(
+  BuildContext context,
+  String workoutName,
+) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.cardBg(dialogContext),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            '¿Eliminar entrenamiento?',
+            style: TextStyle(
+              color: AppTheme.textPrimary(dialogContext),
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          content: Text(
+            'Se eliminará "$workoutName" y todas sus series del historial. Esta acción no se puede deshacer.',
+            style: TextStyle(
+              color: AppTheme.textSecondary(dialogContext),
+              fontSize: 14,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(
+                'Cancelar',
+                style: TextStyle(color: AppTheme.textSecondary(dialogContext)),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Eliminar',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
 
 class WorkoutDetailScreen extends StatefulWidget {
   final Workout workout;
@@ -32,11 +93,55 @@ class WorkoutDetailScreen extends StatefulWidget {
 
 class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
   Map<int, Exercise> _exercisesById = const {};
+  bool _isDeleting = false;
 
   @override
   void initState() {
     super.initState();
     _loadExercisesCatalog();
+  }
+
+  Future<void> _confirmAndDelete() async {
+    final workoutId = widget.workout.id;
+    if (workoutId == null || workoutId <= 0 || _isDeleting) return;
+
+    final confirmed = await showDeleteWorkoutConfirmDialog(
+      context,
+      widget.workout.name,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await WorkoutDependencies.deleteWorkoutUseCase(workoutId);
+      WorkoutDependencies.notifyWorkoutSaved();
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      final cleanMsg = e
+          .toString()
+          .replaceFirst(
+            RegExp(r'^(Exception:\s*|ServerException:\s*|Failure:\s*)'),
+            '',
+          )
+          .trim();
+      if (mounted) {
+        setState(() => _isDeleting = false);
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                cleanMsg.isNotEmpty
+                    ? cleanMsg
+                    : 'No se pudo eliminar el entrenamiento',
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+      }
+    }
   }
 
   Future<void> _loadExercisesCatalog() async {
@@ -96,15 +201,17 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       .where((s) => !s.isWarmup)
       .fold(0, (sum, s) => sum + s.weight * s.reps);
 
-  // Cambio: antes abreviaba con "k" a partir de 1000 kg.
-  // Ahora muestra siempre el número completo ("1234 kg").
-  String _volumeLabel() {
-    final v = _totalVolume();
-    return '${v.toStringAsFixed(0)} kg';
-  }
+  String _volumeLabel(WeightUnit unit) =>
+      WeightConverter.formatVolume(_totalVolume(), unit);
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final bg = AppTheme.scaffoldBg(context);
+    final cardBg = AppTheme.cardBg(context);
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
+
     final grouped = _groupedExercises();
     final sessionHeatmap = _exercisesById.isEmpty
         ? MuscleHeatmapData.empty
@@ -117,10 +224,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
       if (widget.personalRecords.isNotEmpty)
         _PersonalRecordsBanner(personalRecords: widget.personalRecords),
       if (!sessionHeatmap.isEmpty) ...[
-        const Text(
+        Text(
           'Músculos trabajados',
           style: TextStyle(
-            color: Colors.white,
+            color: primaryText,
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -138,13 +245,14 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: bg,
       appBar: AppBar(
         title: Text(
           widget.isPreview ? 'Workout Preview' : 'Workout Summary',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: cardBg,
+        foregroundColor: primaryText,
         elevation: 0,
         leading: widget.isPreview
             ? IconButton(
@@ -152,13 +260,40 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                 onPressed: () => Navigator.pop(context, false),
               )
             : null,
+        actions: (!widget.isPreview &&
+                widget.workout.id != null &&
+                widget.workout.id! > 0)
+            ? [
+                _isDeleting
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.redAccent,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        key: const Key('workout_detail_delete_button'),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.redAccent,
+                        ),
+                        tooltip: 'Eliminar entrenamiento',
+                        onPressed: _confirmAndDelete,
+                      ),
+              ]
+            : null,
       ),
       body: Column(
         children: [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-            color: const Color(0xFF1E1E1E),
+            color: cardBg,
             child: Column(
               children: [
                 const Icon(
@@ -169,19 +304,19 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                 const SizedBox(height: 10),
                 Text(
                   widget.workout.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: primaryText,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   date,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF888888),
+                    color: secondaryText,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -211,7 +346,7 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                     Expanded(
                       child: _SummaryChip(
                         icon: Icons.monitor_weight_outlined,
-                        label: _volumeLabel(),
+                        label: _volumeLabel(unit),
                         sublabel: 'Volume',
                       ),
                     ),
@@ -256,10 +391,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
           if (widget.isPreview)
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Color(0xFF1E1E1E),
+              decoration: BoxDecoration(
+                color: cardBg,
                 border: Border(
-                  top: BorderSide(color: Color(0xFF2A2A2A)),
+                  top: BorderSide(color: AppTheme.borderColor(context)),
                 ),
               ),
               child: SafeArea(
@@ -276,8 +411,10 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Back',
-                            style: TextStyle(color: Colors.grey, fontSize: 16)),
+                        child: Text(
+                          'Back',
+                          style: TextStyle(color: secondaryText, fontSize: 16),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -293,11 +430,14 @@ class _WorkoutDetailScreenState extends State<WorkoutDetailScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Finish Workout',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Finish Workout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -344,16 +484,26 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final cardBg = AppTheme.cardBg(context);
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
+    final mutedText = AppTheme.textMuted(context);
+
     int workingSetNumber = 0;
-    final volumeStr = _exerciseVolume().toStringAsFixed(0);
+    final volumeLabel = WeightConverter.formatVolume(_exerciseVolume(), unit);
     final best1Rm = _bestEstimated1Rm();
+    final best1RmDisplay = WeightConverter.fromKg(best1Rm, unit).round();
     final hasAnyPr = prSetNumbers.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: cardBg,
         borderRadius: BorderRadius.circular(14),
+        border: AppTheme.isDark(context)
+            ? null
+            : Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -385,10 +535,10 @@ class _ExerciseCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${sets.length} series · $volumeStr kg'
-                          '${best1Rm > 0 ? ' · Mejor 1RM ~${best1Rm.round()} kg' : ''}',
-                          style: const TextStyle(
-                            color: Color(0xFF888888),
+                          '${sets.length} series · $volumeLabel'
+                          '${best1Rm > 0 ? ' · Mejor 1RM ~$best1RmDisplay ${unit.label}' : ''}',
+                          style: TextStyle(
+                            color: secondaryText,
                             fontSize: 11.5,
                           ),
                         ),
@@ -417,39 +567,39 @@ class _ExerciseCard extends StatelessWidget {
             Row(
               children: [
                 const SizedBox(width: 38),
-                const Expanded(
+                Expanded(
                   flex: 2,
                   child: Text(
-                    'KG',
+                    unit.headerLabel,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF666666),
+                      color: mutedText,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                       letterSpacing: 0.5,
                     ),
                   ),
                 ),
-                const Expanded(
+                Expanded(
                   flex: 2,
                   child: Text(
                     'REPS',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF666666),
+                      color: mutedText,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                       letterSpacing: 0.5,
                     ),
                   ),
                 ),
-                const Expanded(
+                Expanded(
                   flex: 2,
                   child: Text(
                     '1RM EST.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Color(0xFF666666),
+                      color: mutedText,
                       fontWeight: FontWeight.w700,
                       fontSize: 11,
                       letterSpacing: 0.5,
@@ -459,14 +609,17 @@ class _ExerciseCard extends StatelessWidget {
                 if (hasAnyPr) const SizedBox(width: 56),
               ],
             ),
-            const Divider(color: Color(0xFF2A2A2A)),
+            Divider(color: AppTheme.borderColor(context)),
 
             ...sets.map((s) {
               final isWarmup = s.isWarmup;
               if (!isWarmup) workingSetNumber++;
               final isPr = !isWarmup && prSetNumbers.contains(s.setNumber);
 
-              final weightStr = ExerciseHistoricalBest.formatWeight(s.weight);
+              final weightStr = ExerciseHistoricalBest.formatWeightInUnit(
+                s.weight,
+                unit,
+              );
               final est1Rm = isWarmup || s.weight <= 0 || s.reps <= 0
                   ? 0.0
                   : EvaluatePersonalRecords.calculateEstimated1Rm(
@@ -476,7 +629,7 @@ class _ExerciseCard extends StatelessWidget {
               final est1RmStr = isWarmup
                   ? 'Calent.'
                   : est1Rm > 0
-                  ? '${est1Rm.round()} kg'
+                  ? '${WeightConverter.fromKg(est1Rm, unit).round()} ${unit.label}'
                   : '—';
 
               return Padding(
@@ -491,7 +644,7 @@ class _ExerciseCard extends StatelessWidget {
                             ? Colors.orange.withValues(alpha: 0.12)
                             : isPr
                             ? Colors.amber.withValues(alpha: 0.16)
-                            : const Color(0xFF252525),
+                            : AppTheme.elevatedBg(context),
                         borderRadius: BorderRadius.circular(6),
                         border: isWarmup
                             ? Border.all(
@@ -515,7 +668,7 @@ class _ExerciseCard extends StatelessWidget {
                             : Text(
                                 '$workingSetNumber',
                                 style: TextStyle(
-                                  color: isPr ? Colors.amber : Colors.white,
+                                  color: isPr ? Colors.amber : primaryText,
                                   fontWeight: FontWeight.w700,
                                   fontSize: 13,
                                 ),
@@ -531,10 +684,10 @@ class _ExerciseCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isWarmup
-                              ? const Color(0xFF888888)
+                              ? secondaryText
                               : isPr
-                              ? Colors.amber.shade200
-                              : Colors.white,
+                              ? Colors.amber
+                              : primaryText,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -548,10 +701,10 @@ class _ExerciseCard extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: isWarmup
-                              ? const Color(0xFF888888)
+                              ? secondaryText
                               : isPr
-                              ? Colors.amber.shade200
-                              : Colors.white,
+                              ? Colors.amber
+                              : primaryText,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -567,8 +720,8 @@ class _ExerciseCard extends StatelessWidget {
                           color: isWarmup
                               ? Colors.orange.withValues(alpha: 0.75)
                               : isPr
-                              ? Colors.amber.shade200
-                              : const Color(0xFF9E9E9E),
+                              ? Colors.amber
+                              : secondaryText,
                           fontWeight: FontWeight.w500,
                           fontSize: 13,
                         ),
@@ -633,15 +786,15 @@ class _SummaryChip extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppTheme.textPrimary(context),
             fontWeight: FontWeight.w700,
             fontSize: 16,
           ),
         ),
         Text(
           sublabel,
-          style: const TextStyle(color: Color(0xFF777777), fontSize: 11),
+          style: TextStyle(color: AppTheme.textMuted(context), fontSize: 11),
         ),
       ],
     );
@@ -667,6 +820,7 @@ class _PersonalRecordsBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
     final groupedPrs = _bestPerExercise();
 
     return Container(
@@ -676,7 +830,9 @@ class _PersonalRecordsBanner extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             Colors.amber.withValues(alpha: 0.16),
-            const Color(0xFF261E0A),
+            AppTheme.isDark(context)
+                ? const Color(0xFF261E0A)
+                : Colors.amber.withValues(alpha: 0.06),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -736,8 +892,8 @@ class _PersonalRecordsBanner extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 pr.exerciseName,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: AppTheme.textPrimary(context),
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14,
                                 ),
@@ -745,7 +901,7 @@ class _PersonalRecordsBanner extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              pr.performanceLabel,
+                              pr.performanceLabelFor(unit),
                               style: const TextStyle(
                                 color: Colors.amber,
                                 fontWeight: FontWeight.bold,
@@ -755,9 +911,9 @@ class _PersonalRecordsBanner extends StatelessWidget {
                           ],
                         ),
                         Text(
-                          pr.improvementLabel,
+                          pr.improvementLabelFor(unit),
                           style: TextStyle(
-                            color: Colors.amber.shade100.withValues(alpha: 0.8),
+                            color: AppTheme.textSecondary(context),
                             fontSize: 12,
                           ),
                         ),

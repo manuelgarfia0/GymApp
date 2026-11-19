@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/slow_loading_indicator.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/routine.dart';
@@ -165,24 +166,30 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
   Future<void> _deleteRoutine(Routine routine) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
-        title: const Text(
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogContext),
+        title: Text(
           'Delete Routine',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppTheme.textPrimary(dialogContext),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Text(
           'Are you sure you want to delete "${routine.name}"?'
           ' This cannot be undone.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppTheme.textSecondary(dialogContext)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.textSecondary(dialogContext)),
+            ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
@@ -199,7 +206,7 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('"${routine.name}" deleted.'),
-            backgroundColor: const Color(0xFF2A2A2A),
+            backgroundColor: AppTheme.elevatedBg(context),
           ),
         );
       }
@@ -238,33 +245,38 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
   }) async {
     return await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFF1E1E1E),
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: AppTheme.cardBg(dialogContext),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             title: Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppTheme.textPrimary(dialogContext),
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
             ),
             content: Text(
               subtitle,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textSecondary(dialogContext),
+                fontSize: 14,
+              ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(
                   'Not now',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    color: AppTheme.textSecondary(dialogContext),
+                  ),
                 ),
               ),
               ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
                   shape: RoundedRectangleBorder(
@@ -289,21 +301,25 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bg = AppTheme.scaffoldBg(context);
+    final textPrimary = AppTheme.textPrimary(context);
+    final textMuted = AppTheme.textMuted(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: bg,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             // Header
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                 child: Text(
                   'Train',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: textPrimary,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -348,22 +364,22 @@ class _RoutinesScreenState extends State<RoutinesScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       'My Routines',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        color: textPrimary,
                         letterSpacing: -0.3,
                       ),
                     ),
                     if (_routines.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         '· hold & drag to reorder',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF666666),
+                          color: textMuted,
                         ),
                       ),
                     ],
@@ -450,11 +466,16 @@ class _RoutineCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final exerciseCount = routine.exercises.length;
     final totalSets = routine.exercises.fold<int>(0, (s, e) => s + e.sets);
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardBg(context),
         borderRadius: BorderRadius.circular(16),
+        border: AppTheme.isDark(context)
+            ? null
+            : Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -470,23 +491,23 @@ class _RoutineCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 2, right: 10),
                   child: Icon(
                     Icons.drag_handle_rounded,
-                    color: const Color(0xFF444444),
+                    color: AppTheme.textMuted(context),
                     size: 20,
                   ),
                 ),
                 Expanded(
                   child: Text(
                     routine.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: primaryText,
                     ),
                   ),
                 ),
                 _IconBtn(
                   icon: Icons.edit_outlined,
-                  color: const Color(0xFF888888),
+                  color: secondaryText,
                   onTap: onEdit,
                   tooltip: 'Edit',
                 ),
@@ -507,7 +528,7 @@ class _RoutineCard extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 30),
                 child: Text(
                   routine.description!,
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: TextStyle(color: secondaryText, fontSize: 13),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -515,7 +536,7 @@ class _RoutineCard extends StatelessWidget {
             ],
 
             const SizedBox(height: 14),
-            const Divider(color: Color(0xFF2E2E2E), height: 1),
+            Divider(color: AppTheme.borderColor(context), height: 1),
             const SizedBox(height: 14),
 
             // ── Stats + Start button ──────────────────────────────────
@@ -673,12 +694,13 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final secondaryText = AppTheme.textSecondary(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: Colors.grey),
+        Icon(icon, size: 13, color: secondaryText),
         const SizedBox(width: 4),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+        Text(label, style: TextStyle(color: secondaryText, fontSize: 13)),
       ],
     );
   }
@@ -697,13 +719,15 @@ class _ExerciseChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: highlighted
             ? Colors.blueAccent.withValues(alpha: 0.15)
-            : const Color(0xFF2A2A2A),
+            : AppTheme.elevatedBg(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: highlighted ? Colors.blueAccent : const Color(0xFFAAAAAA),
+          color: highlighted
+              ? Colors.blueAccent
+              : AppTheme.textSecondary(context),
           fontSize: 12,
           fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
         ),
@@ -746,8 +770,8 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: AppTheme.textPrimary(context),
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
@@ -756,7 +780,10 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               subtitle,
-              style: const TextStyle(color: Colors.grey, fontSize: 14),
+              style: TextStyle(
+                color: AppTheme.textSecondary(context),
+                fontSize: 14,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),

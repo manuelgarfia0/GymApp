@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../features/workouts/domain/entities/muscle_heatmap.dart';
+import '../settings/app_settings_scope.dart';
+import '../theme/app_theme.dart';
+import '../utils/weight_converter.dart';
 
 /// Mapa de calor anatómico interactivo del cuerpo humano (vista frontal y espalda).
 ///
@@ -125,13 +128,14 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
     final data = _activeData;
     final activeMuscles = data.activeMusclesSorted;
     final figureHeight = widget.compact ? 236.0 : 286.0;
     final padding = widget.compact ? 14.0 : 16.0;
 
     return Card(
-      color: const Color(0xFF1E1E1E),
+      color: AppTheme.cardBg(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: EdgeInsets.all(padding),
@@ -141,8 +145,8 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
             if (widget.subtitle != null && widget.subtitle!.isNotEmpty) ...[
               Text(
                 widget.subtitle!,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: AppTheme.textSecondary(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -150,7 +154,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
               const SizedBox(height: 10),
             ],
             if (widget.singleData == null && widget.heatmapsByRange != null) ...[
-              _buildRangeSelector(),
+              _buildRangeSelector(context),
               const SizedBox(height: 14),
             ],
             SizedBox(
@@ -171,7 +175,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                   Container(
                     width: 1,
                     margin: const EdgeInsets.symmetric(vertical: 14),
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: AppTheme.borderColor(context),
                   ),
                   Expanded(
                     child: _FigurePanel(
@@ -188,7 +192,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildLegend(),
+            _buildLegend(context),
             if (activeMuscles.isNotEmpty) ...[
               const SizedBox(height: 12),
               Wrap(
@@ -211,7 +215,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                       decoration: BoxDecoration(
                         color: selected
                             ? heatColor.withValues(alpha: 0.24)
-                            : const Color(0xFF262626),
+                            : AppTheme.elevatedBg(context),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: selected
@@ -235,7 +239,9 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                           Text(
                             activity.muscle.displayNameEs,
                             style: TextStyle(
-                              color: selected ? Colors.white : Colors.white70,
+                              color: selected
+                                  ? AppTheme.textPrimary(context)
+                                  : AppTheme.textSecondary(context),
                               fontSize: 11.5,
                               fontWeight:
                                   selected ? FontWeight.bold : FontWeight.w500,
@@ -249,20 +255,20 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
               ),
             ],
             const SizedBox(height: 12),
-            _buildDetailPanel(data),
+            _buildDetailPanel(context, data, unit),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRangeSelector() {
+  Widget _buildRangeSelector(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: const Color(0xFF141414),
+        color: AppTheme.scaffoldBg(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Row(
         children: MuscleHeatmapRange.values.map((range) {
@@ -282,7 +288,9 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                   range.labelEs,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: selected ? Colors.white : Colors.white60,
+                    color: selected
+                        ? Colors.white
+                        : AppTheme.textSecondary(context),
                     fontSize: 11.5,
                     fontWeight: selected ? FontWeight.bold : FontWeight.w500,
                   ),
@@ -295,21 +303,27 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
     );
   }
 
-  Widget _buildLegend() {
+  Widget _buildLegend(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Text(
+        Text(
           'Intensidad',
-          style: TextStyle(color: Color(0xFF888888), fontSize: 11),
+          style: TextStyle(
+            color: AppTheme.textSecondary(context),
+            fontSize: 11,
+          ),
         ),
         Flexible(
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Sin entreno',
-                style: TextStyle(color: Color(0xFF777777), fontSize: 10),
+                style: TextStyle(
+                  color: AppTheme.textMuted(context),
+                  fontSize: 10,
+                ),
               ),
               const SizedBox(width: 5),
               ...List.generate(
@@ -325,9 +339,12 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                 ),
               ),
               const SizedBox(width: 5),
-              const Text(
+              Text(
                 'Máximo',
-                style: TextStyle(color: Color(0xFF777777), fontSize: 10),
+                style: TextStyle(
+                  color: AppTheme.textMuted(context),
+                  fontSize: 10,
+                ),
               ),
             ],
           ),
@@ -336,25 +353,39 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
     );
   }
 
-  Widget _buildDetailPanel(MuscleHeatmapData data) {
+  Widget _buildDetailPanel(
+    BuildContext context,
+    MuscleHeatmapData data,
+    WeightUnit unit,
+  ) {
+    final panelBg = AppTheme.scaffoldBg(context);
+    final border = AppTheme.borderColor(context);
+
     if (data.isEmpty) {
       return Container(
         key: const Key('muscle_detail_panel'),
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: panelBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: border),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.info_outline_rounded, color: Colors.grey, size: 18),
-            SizedBox(width: 8),
+            Icon(
+              Icons.info_outline_rounded,
+              color: AppTheme.textSecondary(context),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Sin entrenamientos en este periodo',
-                style: TextStyle(color: Colors.grey, fontSize: 12.5),
+                style: TextStyle(
+                  color: AppTheme.textSecondary(context),
+                  fontSize: 12.5,
+                ),
               ),
             ),
           ],
@@ -372,9 +403,9 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF171717),
+          color: panelBg,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: border),
         ),
         child: Row(
           children: [
@@ -387,7 +418,10 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
             Expanded(
               child: Text(
                 hint,
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(
+                  color: AppTheme.textSecondary(context),
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -407,7 +441,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF171717),
+        color: panelBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: levelColor.withValues(alpha: 0.55),
@@ -431,8 +465,8 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
               Expanded(
                 child: Text(
                   activity.muscle.displayNameEs,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textPrimary(context),
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
@@ -449,7 +483,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                   levelText,
                   style: TextStyle(
                     color: activity.intensityLevel == 0
-                        ? Colors.white70
+                        ? AppTheme.textSecondary(context)
                         : levelColor,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -476,13 +510,13 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                 ),
               _DetailStat(
                 label: 'Volumen',
-                value: '${activity.totalVolume.toStringAsFixed(0)} kg',
+                value: WeightConverter.formatVolume(activity.totalVolume, unit),
               ),
             ],
           ),
           if (activity.exercises.isNotEmpty) ...[
             const SizedBox(height: 10),
-            const Divider(color: Color(0xFF282828), height: 1),
+            Divider(color: border, height: 1),
             const SizedBox(height: 8),
             ...activity.exercises.take(5).map(
                   (ex) => Padding(
@@ -492,8 +526,8 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                         Expanded(
                           child: Text(
                             ex.exerciseName,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppTheme.textPrimary(context),
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -517,7 +551,7 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                             style: TextStyle(
                               color: ex.isPrimary
                                   ? Colors.blueAccent
-                                  : Colors.white60,
+                                  : AppTheme.textSecondary(context),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -525,9 +559,9 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${ex.sets}s · ${ex.volume.toStringAsFixed(0)} kg',
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          '${ex.sets}s · ${WeightConverter.formatVolume(ex.volume, unit)}',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary(context),
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -538,9 +572,12 @@ class _AnatomicalMuscleHeatmapState extends State<AnatomicalMuscleHeatmap> {
                 ),
           ] else ...[
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Sin series registradas para este músculo en el periodo actual.',
-              style: TextStyle(color: Colors.grey, fontSize: 11.5),
+              style: TextStyle(
+                color: AppTheme.textSecondary(context),
+                fontSize: 11.5,
+              ),
             ),
           ],
         ],
@@ -562,12 +599,15 @@ class _DetailStat extends StatelessWidget {
         children: [
           TextSpan(
             text: '$label: ',
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
+            style: TextStyle(
+              color: AppTheme.textSecondary(context),
+              fontSize: 12,
+            ),
           ),
           TextSpan(
             text: value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppTheme.textPrimary(context),
               fontSize: 12,
               fontWeight: FontWeight.bold,
             ),

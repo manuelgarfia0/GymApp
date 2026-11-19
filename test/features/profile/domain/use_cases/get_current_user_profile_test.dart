@@ -41,6 +41,24 @@ class MockProfileRepository implements ProfileRepository {
     }
     return userProfile;
   }
+
+  @override
+  Future<void> changePassword(
+    int userId,
+    String currentPassword,
+    String newPassword,
+  ) async {
+    if (_mockException != null) {
+      throw _mockException!;
+    }
+  }
+
+  @override
+  Future<void> deleteAccount(int userId, String password) async {
+    if (_mockException != null) {
+      throw _mockException!;
+    }
+  }
 }
 
 void main() {

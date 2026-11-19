@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/settings/app_settings_scope.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/weight_converter.dart';
 import '../../domain/use_cases/get_user_stats.dart';
 
 /// Matriz anual interactiva (7 días × ~53 semanas) que visualiza los últimos
@@ -96,6 +99,7 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
     final rawNow = widget.anchorDate ?? DateTime.now();
     final today = _normalizeDate(rawNow);
     final rangeStart = today.subtract(const Duration(days: 364));
@@ -122,7 +126,7 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
     final monthHeaders = _buildMonthHeaders(gridStart, rangeStart, today, weekCount);
 
     return Card(
-      color: const Color(0xFF1E1E1E),
+      color: AppTheme.cardBg(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -161,8 +165,8 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
                             showLabel
                                 ? WorkoutConsistencyHeatmap._weekdayLabels[row]
                                 : '',
-                            style: const TextStyle(
-                              color: Color(0xFF777777),
+                            style: TextStyle(
+                              color: AppTheme.textMuted(context),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -189,8 +193,8 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
                                       monthHeaders[w]!,
                                       overflow: TextOverflow.visible,
                                       softWrap: false,
-                                      style: const TextStyle(
-                                        color: Color(0xFF888888),
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary(context),
                                         fontSize: 10,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -225,8 +229,9 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
                                   hasWorkout: dayWorkouts.isNotEmpty,
                                 );
                                 final isSelected = selectedNormalized == cellDate;
-                                final color =
-                                    WorkoutConsistencyHeatmap._palette[level];
+                                final color = level == 0 && !AppTheme.isDark(context)
+                                    ? const Color(0xFFE2E8F0)
+                                    : WorkoutConsistencyHeatmap._palette[level];
 
                                 return Padding(
                                   padding: const EdgeInsets.only(
@@ -238,6 +243,7 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
                                       cellDate,
                                       dayWorkouts.length,
                                       vol,
+                                      unit,
                                     ),
                                     child: GestureDetector(
                                       key: Key(
@@ -276,15 +282,23 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: _buildSelectionSummary(selectedNormalized, normalizedVolumes),
+                  child: _buildSelectionSummary(
+                    context,
+                    selectedNormalized,
+                    normalizedVolumes,
+                    unit,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Menos',
-                      style: TextStyle(color: Color(0xFF777777), fontSize: 10),
+                      style: TextStyle(
+                        color: AppTheme.textMuted(context),
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     ...List.generate(
@@ -294,15 +308,20 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
                         height: 10,
                         margin: const EdgeInsets.symmetric(horizontal: 1.5),
                         decoration: BoxDecoration(
-                          color: WorkoutConsistencyHeatmap._palette[index],
+                          color: index == 0 && !AppTheme.isDark(context)
+                              ? const Color(0xFFE2E8F0)
+                              : WorkoutConsistencyHeatmap._palette[index],
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
+                    Text(
                       'Más',
-                      style: TextStyle(color: Color(0xFF777777), fontSize: 10),
+                      style: TextStyle(
+                        color: AppTheme.textMuted(context),
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -315,13 +334,15 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
   }
 
   Widget _buildSelectionSummary(
+    BuildContext context,
     DateTime? selectedDay,
     Map<DateTime, double> volumes,
+    WeightUnit unit,
   ) {
     if (selectedDay == null) {
-      return const Text(
+      return Text(
         'Pulsa un día para ver detalle',
-        style: TextStyle(color: Color(0xFF888888), fontSize: 11),
+        style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 11),
         overflow: TextOverflow.ellipsis,
       );
     }
@@ -330,14 +351,17 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
     final volume = volumes[selectedDay] ?? 0;
     final dateStr =
         '${selectedDay.day} ${WorkoutConsistencyHeatmap._monthAbbr[selectedDay.month - 1]} ${selectedDay.year}';
+    final volumeText = WeightConverter.formatVolume(volume, unit);
     final detail = workoutsCount == 0
         ? '$dateStr · Sin actividad'
-        : '$dateStr · $workoutsCount entreno${workoutsCount > 1 ? 's' : ''} · ${volume.toStringAsFixed(0)} kg';
+        : '$dateStr · $workoutsCount entreno${workoutsCount > 1 ? 's' : ''} · $volumeText';
 
     return Text(
       detail,
       style: TextStyle(
-        color: workoutsCount > 0 ? Colors.white : const Color(0xFF888888),
+        color: workoutsCount > 0
+            ? AppTheme.textPrimary(context)
+            : AppTheme.textSecondary(context),
         fontSize: 11,
         fontWeight: workoutsCount > 0 ? FontWeight.w600 : FontWeight.normal,
       ),
@@ -376,10 +400,16 @@ class _WorkoutConsistencyHeatmapState extends State<WorkoutConsistencyHeatmap> {
     return labels;
   }
 
-  String _tooltipMessage(DateTime day, int workoutCount, double volume) {
+  String _tooltipMessage(
+    DateTime day,
+    int workoutCount,
+    double volume,
+    WeightUnit unit,
+  ) {
     final formatted = DateFormat('dd/MM/yyyy').format(day);
     if (workoutCount == 0) return '$formatted: Descanso';
-    return '$formatted: $workoutCount entreno(s) · ${volume.toStringAsFixed(0)} kg';
+    final volumeText = WeightConverter.formatVolume(volume, unit);
+    return '$formatted: $workoutCount entreno(s) · $volumeText';
   }
 }
 

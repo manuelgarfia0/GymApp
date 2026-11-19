@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../utils/weight_converter.dart';
 
 class PlateCalculatorSheet extends StatefulWidget {
   final double initialWeight;
+  final WeightUnit unit;
 
-  const PlateCalculatorSheet({super.key, required this.initialWeight});
+  const PlateCalculatorSheet({
+    super.key,
+    required this.initialWeight,
+    this.unit = WeightUnit.kg,
+  });
 
   @override
   State<PlateCalculatorSheet> createState() => _PlateCalculatorSheetState();
 }
 
 class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
-  // Discos estándar disponibles en la mayoría de gimnasios (en kg)
-  final List<double> availablePlates = [25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
+  // Discos estándar disponibles según unidad
+  List<double> get availablePlates => widget.unit == WeightUnit.lb
+      ? const [45.0, 35.0, 25.0, 10.0, 5.0, 2.5]
+      : const [25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25];
 
-  // Peso por defecto de la barra olímpica (en kg)
-  double barWeight = 20.0;
+  // Peso por defecto de la barra olímpica (20 kg o 45 lb)
+  late final double barWeight;
 
   // Lista que almacenará cuántos discos de cada tipo van *por lado*
   List<double> platesPerSide = [];
@@ -25,6 +33,7 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
   @override
   void initState() {
     super.initState();
+    barWeight = widget.unit == WeightUnit.lb ? 45.0 : 20.0;
     currentWeight = widget.initialWeight > 0 ? widget.initialWeight : barWeight;
     _calculatePlates();
   }
@@ -52,7 +61,9 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
     }
   }
 
-  // Permite sumar/restar 2.5kg (un disco pequeño por lado) al total
+  double get _stepAmount => widget.unit == WeightUnit.lb ? 5.0 : 2.5;
+
+  // Permite sumar/restar un par de discos mínimos al total
   void _adjustWeight(double amount) {
     setState(() {
       currentWeight += amount;
@@ -63,11 +74,15 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final unitLabel = widget.unit.label;
+    final textPrimary = AppTheme.textPrimary(context);
+    final textSecondary = AppTheme.textSecondary(context);
+
     return Container(
       padding: const EdgeInsets.all(24.0),
-      decoration: const BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBg(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -76,17 +91,17 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppTheme.secondaryTextColor,
+              color: textSecondary,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Plate Calculator',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primaryTextColor,
+              color: textPrimary,
             ),
           ),
           const SizedBox(height: 24),
@@ -101,11 +116,11 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
                   size: 32,
                   color: Colors.grey,
                 ),
-                onPressed: () => _adjustWeight(-2.5),
+                onPressed: () => _adjustWeight(-_stepAmount),
               ),
               const SizedBox(width: 16),
               Text(
-                '${currentWeight.toStringAsFixed(1)} kg',
+                '${currentWeight.toStringAsFixed(1)} $unitLabel',
                 style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -119,36 +134,36 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
                   size: 32,
                   color: Colors.grey,
                 ),
-                onPressed: () => _adjustWeight(2.5),
+                onPressed: () => _adjustWeight(_stepAmount),
               ),
             ],
           ),
 
           Text(
-            'Includes ${barWeight}kg bar',
-            style: const TextStyle(
-              color: AppTheme.secondaryTextColor,
+            'Includes $barWeight$unitLabel bar',
+            style: TextStyle(
+              color: textSecondary,
               fontSize: 14,
             ),
           ),
           const SizedBox(height: 32),
 
           // Visualización de discos (Texto)
-          const Text(
+          Text(
             'Plates PER SIDE:',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primaryTextColor,
+              color: textPrimary,
             ),
           ),
           const SizedBox(height: 16),
 
           if (platesPerSide.isEmpty)
-            const Text(
+            Text(
               'Just the empty bar!',
               style: TextStyle(
-                color: AppTheme.secondaryTextColor,
+                color: textSecondary,
                 fontSize: 16,
                 fontStyle: FontStyle.italic,
               ),
@@ -161,8 +176,8 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
               children: platesPerSide.map((plate) {
                 // Color distinto según el tamaño del disco (estilo olímpico)
                 Color plateColor = AppTheme.plateDefault;
-                if (plate == 25) plateColor = AppTheme.plateRed;
-                if (plate == 20) plateColor = AppTheme.plateBlue;
+                if (plate == 25 || plate == 45) plateColor = AppTheme.plateRed;
+                if (plate == 20 || plate == 35) plateColor = AppTheme.plateBlue;
                 if (plate == 15) plateColor = AppTheme.plateYellow;
                 if (plate == 10) plateColor = AppTheme.plateGreen;
 
@@ -174,7 +189,7 @@ class _PlateCalculatorSheetState extends State<PlateCalculatorSheet> {
                   decoration: BoxDecoration(
                     color: plateColor,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.secondaryTextColor),
+                    border: Border.all(color: textSecondary),
                   ),
                   child: Text(
                     plate.toStringAsFixed(

@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/di/core_dependencies.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/settings/app_settings_scope.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/weight_converter.dart';
 import '../../../../core/widgets/anatomical_muscle_heatmap.dart';
 import '../../domain/entities/exercise.dart';
 import '../../domain/entities/personal_record.dart';
@@ -87,9 +90,15 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   Timer? _restTimer;
   int _restSecondsRemaining = 0;
   int _restTotalSeconds = 90;
+  int _defaultRestSeconds = 90;
   bool _isResting = false;
   bool _isRestPaused = false;
   bool _restSoundEnabled = true;
+  bool _restVibrationEnabled = true;
+  bool _restNotificationEnabled = true;
+  bool _hapticOnSetComplete = true;
+  bool _keepScreenOn = false;
+  WeightUnit _weightUnit = WeightUnit.kg;
   String? _restExerciseName;
   DateTime? _restEndTime;
 
@@ -98,6 +107,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _enforceImmersiveBottomBar();
+    final settings = CoreDependencies.settingsService.settings;
+    _defaultRestSeconds = settings.defaultRestSeconds;
+    _restTotalSeconds = settings.defaultRestSeconds;
+    _restSoundEnabled = settings.restSoundEnabled;
+    _restVibrationEnabled = settings.restVibrationEnabled;
+    _restNotificationEnabled = settings.restNotificationEnabled;
+    _hapticOnSetComplete = settings.hapticOnSetComplete;
+    _keepScreenOn = settings.keepScreenOn;
+    _weightUnit = settings.weightUnit;
+
     _saveWorkoutUseCase = WorkoutDependencies.saveWorkoutUseCase;
     _evaluatePersonalRecordsUseCase =
         WorkoutDependencies.evaluatePersonalRecordsUseCase;
@@ -106,6 +125,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
     _restNotificationService = RestTimerNotificationService();
     _restNotificationService.setActionHandler(_handleNotificationAction);
+    if (_keepScreenOn) {
+      unawaited(_restNotificationService.setKeepScreenOn(true));
+    }
 
     if (widget.previousWorkout != null) {
       _historicalBests = _evaluatePersonalRecordsUseCase.buildBaselineFromHistory([
@@ -209,7 +231,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         secondaryMuscles: [],
       );
 
-      int savedRest = 90;
+      int savedRest = _defaultRestSeconds;
       try {
         final re = widget.baseRoutine!.exercises.firstWhere(
           (e) => e.exerciseId == exId,
@@ -249,7 +271,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       );
       final targetSets = re.sets > 0 ? re.sets : 1;
       final targetReps = re.reps > 0 ? re.reps : 10;
-      final savedRest = re.restSeconds > 0 ? re.restSeconds : 90;
+      final savedRest = re.restSeconds > 0 ? re.restSeconds : _defaultRestSeconds;
 
       // Pre-fill with targetWeight from routine definition if available
       _activeExercises.add(
@@ -268,7 +290,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   void _initializeFromSelectedExercises() {
     for (final ex in widget.selectedExercises) {
       _activeExercises.add(
-        ActiveExercise(exercise: ex, sets: [ActiveSet()], restSeconds: 90),
+        ActiveExercise(
+          exercise: ex,
+          sets: [ActiveSet()],
+          restSeconds: _defaultRestSeconds,
+        ),
       );
     }
   }
@@ -338,19 +364,22 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
   }
 
   Future<void> _publishRestNotificationWithPermission() async {
+    if (!_restNotificationEnabled) return;
     await CoreDependencies.permissionsService.requestRequiredPermissions();
     if (!mounted || !_isResting) return;
     await _syncRestNotification();
   }
 
   Future<void> _syncRestNotification() async {
-    if (!_isResting || _restSecondsRemaining <= 0) return;
+    if (!_restNotificationEnabled || !_isResting || _restSecondsRemaining <= 0) {
+      return;
+    }
     await _restNotificationService.showOrUpdate(
       remainingSeconds: _restSecondsRemaining,
       totalSeconds: _restTotalSeconds,
       isPaused: _isRestPaused,
       soundEnabled: _restSoundEnabled,
-      vibrationEnabled: true,
+      vibrationEnabled: _restVibrationEnabled,
       exerciseName: _restExerciseName,
     );
   }
@@ -395,11 +424,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     if (!_isResting) return;
     final playFeedback = !fromNative;
     final soundOn = _restSoundEnabled;
+    final vibrateOn = _restVibrationEnabled;
     _stopRestTimer(syncNative: false);
     if (playFeedback) {
       await _restNotificationService.playCompletionFeedback(
         playSound: soundOn,
-        vibrate: true,
+        vibrate: vibrateOn,
       );
     }
     if (!mounted) return;
@@ -474,6 +504,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     WidgetsBinding.instance.removeObserver(this);
     _restNotificationService.setActionHandler(null);
     _restNotificationService.cancel();
+    _restNotificationService.setKeepScreenOn(false);
     _workoutTimer?.cancel();
     _restTimer?.cancel();
     _workoutNameController.dispose();
@@ -513,6 +544,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         weight: s.weight,
         reps: s.reps,
         exercise: activeEx.exercise,
+        unit: _weightUnit,
       );
       setState(() {
         if (invalidReason != null) {
@@ -550,9 +582,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         weight: s.weight,
         reps: s.reps,
         exercise: activeExercise.exercise,
+        unit: _weightUnit,
       );
       if (validationError != null) {
-        HapticFeedback.lightImpact();
+        if (_hapticOnSetComplete) {
+          HapticFeedback.lightImpact();
+        }
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..hideCurrentSnackBar()
@@ -579,6 +614,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       _recalculateExercisePrs(exerciseIndex);
     });
     if (s.isCompleted) {
+      if (_hapticOnSetComplete) {
+        unawaited(_restNotificationService.lightImpact());
+      }
       if (s.prAchievement != null && mounted) {
         final pr = s.prAchievement!;
         ScaffoldMessenger.of(context)
@@ -586,7 +624,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
           ..showSnackBar(
             SnackBar(
               content: Text(
-                '🏆 ¡Nuevo PR en ${pr.exerciseName}! ${pr.improvementLabel}',
+                '🏆 ¡Nuevo PR en ${pr.exerciseName}! ${pr.improvementLabelFor(_weightUnit)}',
                 style: const TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
@@ -749,7 +787,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         ActiveExercise(
           exercise: selected,
           sets: [ActiveSet()],
-          restSeconds: 90,
+          restSeconds: _defaultRestSeconds,
         ),
       );
     });
@@ -778,12 +816,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setDialogState) {
+          final textPrimary = AppTheme.textPrimary(context);
+          final textSecondary = AppTheme.textSecondary(context);
           return AlertDialog(
-            backgroundColor: const Color(0xFF1E1E1E),
-            title: const Text(
+            backgroundColor: AppTheme.cardBg(context),
+            title: Text(
               'Set Rest Timer',
               style: TextStyle(
-                color: Colors.white,
+                color: textPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -796,12 +836,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                   items: List.generate(11, (i) => i),
                   onChanged: (v) => setDialogState(() => selMin = v!),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     ':',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: textPrimary,
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
@@ -820,9 +860,9 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: textSecondary),
                 ),
               ),
               ElevatedButton(
@@ -854,21 +894,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     );
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogContext),
         title: Text(
           'Notes — ${_activeExercises[exerciseIndex].exercise.name}',
-          style: const TextStyle(color: Colors.white, fontSize: 17),
+          style: TextStyle(
+            color: AppTheme.textPrimary(dialogContext),
+            fontSize: 17,
+          ),
         ),
         content: TextField(
           controller: ctrl,
           maxLines: 4,
-          style: const TextStyle(color: Colors.white),
+          style: TextStyle(color: AppTheme.textPrimary(dialogContext)),
           decoration: InputDecoration(
             hintText: 'Add a note...',
-            hintStyle: const TextStyle(color: Colors.grey),
+            hintStyle: TextStyle(color: AppTheme.textSecondary(dialogContext)),
             filled: true,
-            fillColor: const Color(0xFF2C2C2C),
+            fillColor: AppTheme.elevatedBg(dialogContext),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide.none,
@@ -877,8 +920,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.textSecondary(dialogContext)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
@@ -886,7 +932,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               setState(() {
                 _activeExercises[exerciseIndex].notes = ctrl.text.trim();
               });
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
@@ -917,6 +963,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
               weight: s.weight,
               reps: s.reps,
               exercise: activeEx.exercise,
+              unit: _weightUnit,
             ) ==
             null;
         if (s.isCompleted && isValid) {
@@ -1116,7 +1163,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF161616),
+      backgroundColor: AppTheme.cardBg(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1135,7 +1182,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3A3A3A),
+                      color: AppTheme.borderColor(sheetContext),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -1148,18 +1195,21 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                         size: 22,
                       ),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Mapa muscular en vivo',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.textPrimary(sheetContext),
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70),
+                        icon: Icon(
+                          Icons.close,
+                          color: AppTheme.textSecondary(sheetContext),
+                        ),
                         onPressed: () => Navigator.pop(sheetContext),
                       ),
                     ],
@@ -1196,6 +1246,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 
   @override
   Widget build(BuildContext context) {
+    final unit = AppSettingsScope.of(context).weightUnit;
+    final bg = AppTheme.scaffoldBg(context);
+    final cardBg = AppTheme.cardBg(context);
+    final primaryText = AppTheme.textPrimary(context);
+    final mutedText = AppTheme.textMuted(context);
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -1206,7 +1262,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: bg,
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.close, color: Colors.white),
@@ -1221,7 +1277,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
             children: [
               const Text(
                 'Active Workout',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               Text(
                 _formatTime(_workoutSecondsElapsed),
@@ -1275,18 +1335,18 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    color: const Color(0xFF1A1A1A),
+                    color: cardBg,
                     child: TextField(
                       controller: _workoutNameController,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: primaryText,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Workout Name',
-                        hintStyle: TextStyle(color: Colors.grey),
+                        hintStyle: TextStyle(color: mutedText),
                         isDense: true,
                         contentPadding: EdgeInsets.zero,
                       ),
@@ -1332,6 +1392,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           key: Key(activeEx.id),
                           activeEx: activeEx,
                           exerciseIndex: exerciseIndex,
+                          unit: unit,
                           historicalBest:
                               _historicalBests[activeEx.exercise.id],
                           onRemoveExercise: () => setState(
@@ -1349,11 +1410,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
                           formatRestTime: _formatRestTime,
                           dragHandle: ReorderableDragStartListener(
                             index: exerciseIndex,
-                            child: const Padding(
-                              padding: EdgeInsets.all(10),
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
                               child: Icon(
                                 Icons.drag_handle_rounded,
-                                color: Color(0xFF555555),
+                                color: mutedText,
                                 size: 22,
                               ),
                             ),
@@ -1396,6 +1457,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen>
 class _ExerciseCard extends StatelessWidget {
   final ActiveExercise activeEx;
   final int exerciseIndex;
+  final WeightUnit unit;
   final ExerciseHistoricalBest? historicalBest;
   final VoidCallback onRemoveExercise;
   final VoidCallback onNotes;
@@ -1411,6 +1473,7 @@ class _ExerciseCard extends StatelessWidget {
     super.key,
     required this.activeEx,
     required this.exerciseIndex,
+    required this.unit,
     this.historicalBest,
     required this.onRemoveExercise,
     required this.onNotes,
@@ -1425,11 +1488,18 @@ class _ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryText = AppTheme.textPrimary(context);
+    final secondaryText = AppTheme.textSecondary(context);
+    final mutedText = AppTheme.textMuted(context);
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: AppTheme.cardBg(context),
         borderRadius: BorderRadius.circular(14),
+        border: AppTheme.isDark(context)
+            ? null
+            : Border.all(color: AppTheme.borderColor(context)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1469,9 +1539,7 @@ class _ExerciseCard extends StatelessWidget {
                 IconButton(
                   icon: Icon(
                     Icons.notes_rounded,
-                    color: activeEx.notes.isNotEmpty
-                        ? Colors.amber
-                        : const Color(0xFF666666),
+                    color: activeEx.notes.isNotEmpty ? Colors.amber : mutedText,
                     size: 20,
                   ),
                   onPressed: onNotes,
@@ -1490,7 +1558,7 @@ class _ExerciseCard extends StatelessWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
+                      color: AppTheme.elevatedBg(context),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1504,8 +1572,8 @@ class _ExerciseCard extends StatelessWidget {
                         const SizedBox(width: 3),
                         Text(
                           formatRestTime(activeEx.restSeconds),
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: primaryText,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1546,9 +1614,11 @@ class _ExerciseCard extends StatelessWidget {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        'Mejor histórica: ${historicalBest!.formatSummary()}',
+                        'Mejor histórica: ${historicalBest!.formatSummaryFor(unit)}',
                         style: TextStyle(
-                          color: Colors.amber.shade200.withValues(alpha: 0.85),
+                          color: AppTheme.isDark(context)
+                              ? Colors.amber.shade200.withValues(alpha: 0.85)
+                              : Colors.amber.shade800,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1583,46 +1653,46 @@ class _ExerciseCard extends StatelessWidget {
               ),
 
             // Column headers
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
                   // Set number column - same width as the badge below
-                  SizedBox(width: 36),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 36),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'KG',
+                      unit.headerLabel,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFF666666),
+                        color: mutedText,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'REPS',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFF666666),
+                        color: mutedText,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
                       ),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   // Check + (options menu is on set number tap)
-                  SizedBox(width: 32),
+                  const SizedBox(width: 32),
                 ],
               ),
             ),
 
-            const Divider(color: Color(0xFF2A2A2A), height: 1),
+            Divider(color: AppTheme.borderColor(context), height: 1),
             const SizedBox(height: 6),
 
             // ── Sets ─────────────────────────────────────────────────────
@@ -1634,7 +1704,7 @@ class _ExerciseCard extends StatelessWidget {
               );
               final weightStr = s.weight != null &&
                       (s.weight! > 0 || (isBodyweight && s.weight == 0))
-                  ? ExerciseHistoricalBest.formatWeight(s.weight!)
+                  ? WeightConverter.formatInputFromKg(s.weight!, unit)
                   : '';
               final repsStr = (s.reps != null && s.reps! > 0)
                   ? s.reps!.toString()
@@ -1643,11 +1713,12 @@ class _ExerciseCard extends StatelessWidget {
                     weight: s.weight,
                     reps: s.reps,
                     exercise: activeEx.exercise,
+                    unit: unit,
                   ) ==
                   null;
 
               return Container(
-                key: ValueKey(s.id),
+                key: ValueKey('${s.id}_${unit.code}'),
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: pr != null
                     ? const EdgeInsets.fromLTRB(6, 6, 6, 6)
@@ -1679,7 +1750,7 @@ class _ExerciseCard extends StatelessWidget {
                                   ? Colors.orange.withValues(alpha: 0.15)
                                   : s.isCompleted
                                   ? Colors.green.withValues(alpha: 0.15)
-                                  : const Color(0xFF2A2A2A),
+                                  : AppTheme.elevatedBg(context),
                               borderRadius: BorderRadius.circular(8),
                               border: s.isWarmup
                                   ? Border.all(
@@ -1702,7 +1773,7 @@ class _ExerciseCard extends StatelessWidget {
                                         fontSize: 13,
                                         color: s.isCompleted
                                             ? Colors.green
-                                            : Colors.white,
+                                            : primaryText,
                                       ),
                                     ),
                             ),
@@ -1719,8 +1790,8 @@ class _ExerciseCard extends StatelessWidget {
                               decimal: true,
                             ),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: primaryText,
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
                             ),
@@ -1728,14 +1799,14 @@ class _ExerciseCard extends StatelessWidget {
                               filled: true,
                               fillColor: s.isCompleted
                                   ? Colors.green.withValues(alpha: 0.08)
-                                  : const Color(0xFF252525),
+                                  : AppTheme.elevatedBg(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
                               ),
                               hintText: '—',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF444444),
+                              hintStyle: TextStyle(
+                                color: mutedText,
                                 fontSize: 15,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -1744,8 +1815,9 @@ class _ExerciseCard extends StatelessWidget {
                               isDense: true,
                             ),
                             onChanged: (v) {
-                              s.weight = double.tryParse(
-                                v.trim().replaceAll(',', '.'),
+                              s.weight = WeightConverter.parseInputToKg(
+                                v,
+                                unit,
                               );
                               onSetValuesChanged(setIndex);
                             },
@@ -1760,8 +1832,8 @@ class _ExerciseCard extends StatelessWidget {
                             initialValue: repsStr,
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: primaryText,
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
                             ),
@@ -1769,14 +1841,14 @@ class _ExerciseCard extends StatelessWidget {
                               filled: true,
                               fillColor: s.isCompleted
                                   ? Colors.green.withValues(alpha: 0.08)
-                                  : const Color(0xFF252525),
+                                  : AppTheme.elevatedBg(context),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
                               ),
                               hintText: '—',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF444444),
+                              hintStyle: TextStyle(
+                                color: mutedText,
                                 fontSize: 15,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -1802,8 +1874,8 @@ class _ExerciseCard extends StatelessWidget {
                               color: s.isCompleted
                                   ? Colors.green
                                   : canComplete
-                                  ? const Color(0xFF5A5A5A)
-                                  : const Color(0xFF2D2D2D),
+                                  ? secondaryText
+                                  : AppTheme.borderColor(context),
                               size: 26,
                             ),
                             onPressed: () {
@@ -1821,7 +1893,7 @@ class _ExerciseCard extends StatelessWidget {
                     ),
                     if (pr != null) ...[
                       const SizedBox(height: 6),
-                      _AnimatedPrBadge(achievement: pr),
+                      _AnimatedPrBadge(achievement: pr, unit: unit),
                     ],
                   ],
                 ),
@@ -1859,8 +1931,9 @@ class _ExerciseCard extends StatelessWidget {
 
 class _AnimatedPrBadge extends StatelessWidget {
   final PersonalRecordAchievement achievement;
+  final WeightUnit unit;
 
-  const _AnimatedPrBadge({required this.achievement});
+  const _AnimatedPrBadge({required this.achievement, required this.unit});
 
   @override
   Widget build(BuildContext context) {
@@ -1899,9 +1972,9 @@ class _AnimatedPrBadge extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                achievement.improvementLabel,
+                achievement.improvementLabelFor(unit),
                 style: TextStyle(
-                  color: Colors.amber.shade100,
+                  color: AppTheme.textPrimary(context),
                   fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
@@ -2135,14 +2208,17 @@ class _RestDropdown extends StatelessWidget {
           ),
         ),
         DropdownButton<int>(
-          dropdownColor: const Color(0xFF2C2C2C),
+          dropdownColor: AppTheme.elevatedBg(context),
           value: value,
           items: items.map((i) {
             return DropdownMenuItem(
               value: i,
               child: Text(
                 i.toString().padLeft(2, '0'),
-                style: const TextStyle(color: Colors.white, fontSize: 20),
+                style: TextStyle(
+                  color: AppTheme.textPrimary(context),
+                  fontSize: 20,
+                ),
               ),
             );
           }).toList(),
@@ -2171,21 +2247,27 @@ class _ConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: AppTheme.cardBg(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: AppTheme.textPrimary(context),
           fontWeight: FontWeight.bold,
           fontSize: 18,
         ),
       ),
-      content: Text(subtitle, style: const TextStyle(color: Colors.white70)),
+      content: Text(
+        subtitle,
+        style: TextStyle(color: AppTheme.textSecondary(context)),
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Not now', style: TextStyle(color: Colors.grey)),
+          child: Text(
+            'Not now',
+            style: TextStyle(color: AppTheme.textSecondary(context)),
+          ),
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),

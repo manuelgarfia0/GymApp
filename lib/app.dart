@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'core/di/core_dependencies.dart';
+import 'core/settings/app_settings_scope.dart';
 import 'core/storage/secure_storage_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_dependencies.dart';
@@ -29,23 +30,38 @@ class GymApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Progressive',
-      debugShowCheckedModeBanner: false,
-      actions: appActions,
-      locale: const Locale('es', 'ES'),
-      supportedLocales: const [
-        Locale('es', 'ES'),
-        Locale('en', 'GB'),
-        Locale('en', 'US'),
-      ],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      theme: AppTheme.darkTheme,
-      home: const AuthCheckScreen(),
+    final settingsService = CoreDependencies.settingsService;
+    return ListenableBuilder(
+      listenable: settingsService,
+      builder: (context, _) {
+        final settings = settingsService.settings;
+        return MaterialApp(
+          title: 'Progressive',
+          debugShowCheckedModeBanner: false,
+          actions: appActions,
+          locale: settings.locale,
+          supportedLocales: const [
+            Locale('es', 'ES'),
+            Locale('en', 'GB'),
+            Locale('en', 'US'),
+          ],
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.themeMode,
+          builder: (context, child) {
+            return AppSettingsScope(
+              notifier: settingsService,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
+          home: const AuthCheckScreen(),
+        );
+      },
     );
   }
 }
@@ -109,7 +125,7 @@ class _AuthCheckScreenState extends State<AuthCheckScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppTheme.scaffoldBg(context),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

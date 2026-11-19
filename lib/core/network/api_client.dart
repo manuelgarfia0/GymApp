@@ -214,6 +214,19 @@ class ApiClient extends http.BaseClient {
     encoding: encoding,
   );
 
+  @override
+  Future<http.Response> delete(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) => super.delete(
+    url,
+    headers: body != null ? _jsonHeaders(headers) : headers,
+    body: body,
+    encoding: encoding,
+  );
+
   /// Combina los headers del caller con Content-Type: application/json,
   /// dando prioridad a los headers del caller si coinciden en clave.
   Map<String, String> _jsonHeaders(Map<String, String>? extra) => {

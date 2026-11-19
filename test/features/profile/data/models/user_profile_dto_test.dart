@@ -119,5 +119,68 @@ void main() {
       expect(entity.lastName, isNull);
       expect(entity.preferences, {});
     });
+
+    test(
+      'toJson should format dateOfBirth as YYYY-MM-DD and empty string when null',
+      () {
+        final dtoWithIso = UserProfileDto(
+          id: 1,
+          username: 'testuser',
+          email: 'test@example.com',
+          isPremium: false,
+          dateOfBirth: '1990-01-01T00:00:00.000Z',
+        );
+        final dtoWithDateOnly = UserProfileDto(
+          id: 2,
+          username: 'testuser2',
+          email: 'test2@example.com',
+          isPremium: true,
+          dateOfBirth: '1995-08-19',
+        );
+        final dtoWithNullDob = UserProfileDto(
+          id: 3,
+          username: 'testuser3',
+          email: 'test3@example.com',
+          isPremium: false,
+          dateOfBirth: null,
+        );
+
+        expect(dtoWithIso.toJson()['dateOfBirth'], '1990-01-01');
+        expect(dtoWithDateOnly.toJson()['dateOfBirth'], '1995-08-19');
+        expect(dtoWithNullDob.toJson()['dateOfBirth'], '');
+      },
+    );
+
+    test(
+      'maps granular privacy flags with true defaults and preserves false roundtrip',
+      () {
+        final defaultsDto = UserProfileDto.fromJson({'isPremium': false});
+        expect(defaultsDto.showDateOfBirth, isTrue);
+        expect(defaultsDto.showGlobalStats, isTrue);
+        expect(defaultsDto.showPublicRoutines, isTrue);
+
+        final customDto = UserProfileDto.fromJson({
+          'id': 8,
+          'username': 'priv',
+          'email': 'priv@test.com',
+          'isPremium': false,
+          'publicProfile': false,
+          'showDateOfBirth': false,
+          'showGlobalStats': false,
+          'showPublicRoutines': true,
+        });
+        final entity = customDto.toEntity();
+        expect(entity.publicProfile, isFalse);
+        expect(entity.showDateOfBirth, isFalse);
+        expect(entity.showGlobalStats, isFalse);
+        expect(entity.showPublicRoutines, isTrue);
+
+        final serialized = UserProfileDto.fromEntity(entity).toJson();
+        expect(serialized['publicProfile'], isFalse);
+        expect(serialized['showDateOfBirth'], isFalse);
+        expect(serialized['showGlobalStats'], isFalse);
+        expect(serialized['showPublicRoutines'], isTrue);
+      },
+    );
   });
 }

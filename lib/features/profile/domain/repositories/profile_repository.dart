@@ -9,4 +9,14 @@ abstract class ProfileRepository {
 
   /// Obtiene el perfil del usuario actualmente autenticado
   Future<UserProfile?> getCurrentUserProfile();
+
+  /// Cambia la contraseña del usuario validando la contraseña actual
+  Future<void> changePassword(
+    int userId,
+    String currentPassword,
+    String newPassword,
+  );
+
+  /// Elimina definitivamente la cuenta del usuario previa confirmación de contraseña
+  Future<void> deleteAccount(int userId, String password);
 }

@@ -123,6 +123,27 @@ class RestTimerNotificationService {
     }
   }
 
+  /// Mantiene o libera el encendido continuo de pantalla durante una sesión activa.
+  Future<void> setKeepScreenOn(bool enabled) async {
+    if (!_isAndroid) return;
+    await _invokeSafe<void>('setKeepScreenOn', {'enabled': enabled});
+  }
+
+  /// Abre la hoja nativa de compartir en Android para exportar datos (CSV/JSON).
+  Future<bool> shareText({
+    required String text,
+    required String subject,
+    String mimeType = 'text/plain',
+  }) async {
+    if (!_isAndroid) return false;
+    return await _invokeSafe<bool>('shareText', {
+          'text': text,
+          'subject': subject,
+          'mimeType': mimeType,
+        }) ??
+        false;
+  }
+
   Future<T?> _invokeSafe<T>(String method, [dynamic arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);

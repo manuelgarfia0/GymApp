@@ -10,6 +10,8 @@ import 'data/datasources/profile_remote_datasource.dart';
 import 'data/repositories/profile_repository_impl.dart';
 import 'data/repositories/user_stats_repository_impl.dart';
 import 'domain/repositories/profile_repository.dart';
+import 'domain/use_cases/change_password.dart';
+import 'domain/use_cases/delete_account.dart';
 import 'domain/use_cases/get_current_user_profile.dart';
 import 'domain/use_cases/get_user_profile.dart';
 import 'domain/use_cases/get_user_stats.dart';
@@ -22,6 +24,8 @@ class ProfileDependencies {
   static GetCurrentUserProfile? _getCurrentUserProfileUseCase;
   static GetUserProfile? _getUserProfileUseCase;
   static UpdateUserProfile? _updateUserProfileUseCase;
+  static ChangePassword? _changePasswordUseCase;
+  static DeleteAccount? _deleteAccountUseCase;
 
   static ApiClient get apiClient => CoreDependencies.apiClient;
   static SecureStorageService get storageService =>
@@ -68,6 +72,16 @@ class ProfileDependencies {
     return _updateUserProfileUseCase!;
   }
 
+  static ChangePassword get changePasswordUseCase {
+    _changePasswordUseCase ??= ChangePassword(repository);
+    return _changePasswordUseCase!;
+  }
+
+  static DeleteAccount get deleteAccountUseCase {
+    _deleteAccountUseCase ??= DeleteAccount(repository);
+    return _deleteAccountUseCase!;
+  }
+
   static void reset() {
     _remoteDatasource = null;
     _repository = null;
@@ -75,5 +89,7 @@ class ProfileDependencies {
     _getCurrentUserProfileUseCase = null;
     _getUserProfileUseCase = null;
     _updateUserProfileUseCase = null;
+    _changePasswordUseCase = null;
+    _deleteAccountUseCase = null;
   }
 }

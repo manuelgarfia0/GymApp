@@ -1,3 +1,4 @@
+import '../../../../core/utils/weight_converter.dart';
 import '../entities/exercise.dart';
 
 /// Valida si una serie tiene los valores mínimos necesarios antes de marcarse
@@ -14,6 +15,7 @@ class WorkoutSetValidator {
     required double? weight,
     required int? reps,
     required Exercise exercise,
+    WeightUnit unit = WeightUnit.kg,
   }) {
     final isBodyweight = isBodyweightExercise(exercise);
     if (weight == null) {
@@ -25,7 +27,7 @@ class WorkoutSetValidator {
       return 'El peso no puede ser negativo';
     }
     if (!isBodyweight && weight <= 0) {
-      return 'El peso debe ser mayor que 0 kg para completar la serie';
+      return 'El peso debe ser mayor que 0 ${unit.label} para completar la serie';
     }
     if (reps == null || reps <= 0) {
       return 'Introduce las repeticiones antes de completar la serie';

@@ -5,7 +5,10 @@ class UserProfileDto {
   final String? username;
   final String? email;
   final bool isPremium;
-  final bool publicProfile; // AÑADIDO
+  final bool publicProfile;
+  final bool showDateOfBirth;
+  final bool showGlobalStats;
+  final bool showPublicRoutines;
   final String? languagePreference;
   final String? createdAt;
   final String? firstName;
@@ -18,7 +21,10 @@ class UserProfileDto {
     this.username,
     this.email,
     required this.isPremium,
-    this.publicProfile = true, // AÑADIDO
+    this.publicProfile = true,
+    this.showDateOfBirth = true,
+    this.showGlobalStats = true,
+    this.showPublicRoutines = true,
     this.languagePreference,
     this.createdAt,
     this.firstName,
@@ -33,7 +39,10 @@ class UserProfileDto {
       username: json['username'] as String?,
       email: json['email'] as String?,
       isPremium: json['isPremium'] as bool? ?? json['premium'] as bool? ?? false,
-      publicProfile: json['publicProfile'] as bool? ?? true, // AÑADIDO
+      publicProfile: json['publicProfile'] as bool? ?? true,
+      showDateOfBirth: json['showDateOfBirth'] as bool? ?? true,
+      showGlobalStats: json['showGlobalStats'] as bool? ?? true,
+      showPublicRoutines: json['showPublicRoutines'] as bool? ?? true,
       languagePreference: json['languagePreference'] as String?,
       createdAt: json['createdAt'] as String?,
       firstName: json['firstName'] as String?,
@@ -51,14 +60,25 @@ class UserProfileDto {
       if (username != null) 'username': username,
       if (email != null) 'email': email,
       'isPremium': isPremium,
-      'publicProfile': publicProfile, // AÑADIDO
+      'publicProfile': publicProfile,
+      'showDateOfBirth': showDateOfBirth,
+      'showGlobalStats': showGlobalStats,
+      'showPublicRoutines': showPublicRoutines,
       if (languagePreference != null) 'languagePreference': languagePreference,
       if (createdAt != null) 'createdAt': createdAt,
       if (firstName != null) 'firstName': firstName,
       if (lastName != null) 'lastName': lastName,
-      if (dateOfBirth != null) 'dateOfBirth': dateOfBirth,
+      'dateOfBirth':
+          dateOfBirth != null ? _formatDateOnlyForApi(dateOfBirth!) : '',
       if (preferences != null) 'preferences': preferences,
     };
+  }
+
+  static String _formatDateOnlyForApi(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    final tIndex = trimmed.indexOf('T');
+    return tIndex > 0 ? trimmed.substring(0, tIndex) : trimmed;
   }
 
   UserProfile toEntity() {
@@ -67,7 +87,10 @@ class UserProfileDto {
       username: username ?? '',
       email: email ?? '',
       isPremium: isPremium,
-      publicProfile: publicProfile, // AÑADIDO
+      publicProfile: publicProfile,
+      showDateOfBirth: showDateOfBirth,
+      showGlobalStats: showGlobalStats,
+      showPublicRoutines: showPublicRoutines,
       languagePreference: languagePreference,
       createdAt: createdAt != null ? DateTime.tryParse(createdAt!) : null,
       firstName: firstName,
@@ -83,7 +106,10 @@ class UserProfileDto {
       username: entity.username,
       email: entity.email,
       isPremium: entity.isPremium,
-      publicProfile: entity.publicProfile, // AÑADIDO
+      publicProfile: entity.publicProfile,
+      showDateOfBirth: entity.showDateOfBirth,
+      showGlobalStats: entity.showGlobalStats,
+      showPublicRoutines: entity.showPublicRoutines,
       languagePreference: entity.languagePreference,
       createdAt: entity.createdAt?.toIso8601String(),
       firstName: entity.firstName,

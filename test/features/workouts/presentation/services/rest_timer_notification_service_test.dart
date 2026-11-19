@@ -136,5 +136,43 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
       }
     });
+
+    test('invokes setKeepScreenOn and shareText on Android and degrades on non-Android', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        recordedCalls.add(call);
+        if (call.method == 'shareText') return true;
+        return null;
+      });
+
+      await service.setKeepScreenOn(true);
+      final shared = await service.shareText(
+        text: 'csv-data',
+        subject: 'Export',
+        mimeType: 'text/csv',
+      );
+      expect(shared, isTrue);
+      expect(recordedCalls.map((c) => c.method).toList(), [
+        'setKeepScreenOn',
+        'shareText',
+      ]);
+      expect(recordedCalls[0].arguments, {'enabled': true});
+      expect(recordedCalls[1].arguments, {
+        'text': 'csv-data',
+        'subject': 'Export',
+        'mimeType': 'text/csv',
+      });
+
+      recordedCalls.clear();
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      await service.setKeepScreenOn(false);
+      final nonAndroidShared = await service.shareText(
+        text: 'csv-data',
+        subject: 'Export',
+      );
+      expect(nonAndroidShared, isFalse);
+      expect(recordedCalls, isEmpty);
+    });
   });
 }

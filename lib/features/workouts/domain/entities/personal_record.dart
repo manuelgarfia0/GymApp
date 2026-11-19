@@ -1,3 +1,5 @@
+import '../../../../core/utils/weight_converter.dart';
+
 /// Categorías de récord personal que puede superar una serie completada.
 enum PersonalRecordType {
   maxWeight,
@@ -30,10 +32,20 @@ class ExerciseHistoricalBest {
     return weight.toStringAsFixed(1);
   }
 
+  /// Formatea un peso en kg convirtiéndolo a [unit] sin decimales `.0`.
+  static String formatWeightInUnit(double kg, WeightUnit unit) {
+    return WeightConverter.formatNumber(WeightConverter.fromKg(kg, unit));
+  }
+
   /// Resumen legible para mostrar en la cabecera del ejercicio durante el entreno.
-  String formatSummary() {
-    return '${formatWeight(maxWeight)} kg × $maxRepsAtMaxWeight '
-        '(1RM ~${maxEstimated1Rm.round()} kg)';
+  String formatSummary() => formatSummaryFor(WeightUnit.kg);
+
+  /// Resumen legible convertido a [unit].
+  String formatSummaryFor(WeightUnit unit) {
+    final w = formatWeightInUnit(maxWeight, unit);
+    final e1rm = WeightConverter.fromKg(maxEstimated1Rm, unit).round();
+    return '$w ${unit.label} × $maxRepsAtMaxWeight '
+        '(1RM ~$e1rm ${unit.label})';
   }
 }
 
@@ -63,27 +75,33 @@ class PersonalRecordAchievement {
 
   String get badgeLabel => '🏆 Nuevo PR';
 
-  String get performanceLabel =>
-      '${ExerciseHistoricalBest.formatWeight(weight)} kg × $reps';
+  String get performanceLabel => performanceLabelFor(WeightUnit.kg);
+
+  String performanceLabelFor(WeightUnit unit) =>
+      '${ExerciseHistoricalBest.formatWeightInUnit(weight, unit)} ${unit.label} × $reps';
 
   /// Explica de forma breve qué marca histórica se ha batido.
-  String get improvementLabel {
+  String get improvementLabel => improvementLabelFor(WeightUnit.kg);
+
+  String improvementLabelFor(WeightUnit unit) {
+    final unitLbl = unit.label;
     if (types.contains(PersonalRecordType.firstBenchmark)) {
-      return '1ª marca: $performanceLabel · 1RM ~${estimated1Rm.round()} kg';
+      final est = WeightConverter.fromKg(estimated1Rm, unit).round();
+      return '1ª marca: ${performanceLabelFor(unit)} · 1RM ~$est $unitLbl';
     }
     if (types.contains(PersonalRecordType.maxWeight) &&
         previousMaxWeight != null) {
       final diff = weight - previousMaxWeight!;
-      return '+${ExerciseHistoricalBest.formatWeight(diff)} kg en peso máximo';
+      return '+${ExerciseHistoricalBest.formatWeightInUnit(diff, unit)} $unitLbl en peso máximo';
     }
     if (types.contains(PersonalRecordType.estimated1Rm) &&
         previousMax1Rm != null) {
-      final diff = estimated1Rm - previousMax1Rm!;
-      return '+${diff.toStringAsFixed(1)} kg en 1RM estimado';
+      final diff = WeightConverter.fromKg(estimated1Rm - previousMax1Rm!, unit);
+      return '+${diff.toStringAsFixed(1)} $unitLbl en 1RM estimado';
     }
     if (types.contains(PersonalRecordType.repRecord)) {
-      return 'Más repeticiones con ${ExerciseHistoricalBest.formatWeight(weight)} kg';
+      return 'Más repeticiones con ${ExerciseHistoricalBest.formatWeightInUnit(weight, unit)} $unitLbl';
     }
-    return performanceLabel;
+    return performanceLabelFor(unit);
   }
 }
